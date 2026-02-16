@@ -178,7 +178,7 @@ def compute_mfcc_np(signal):
     """
     Compute MFCC features from a np array.
 
-    :param filename: Description of the .wav file to process
+    :param signal: input audio signal as a numpy array
     :return: 2D array of MFCC features (num_frames x NUM_MFCC)
     """
 
