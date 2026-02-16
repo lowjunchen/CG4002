@@ -1,5 +1,3 @@
-from data.inspect_data import fetch_one_tfds_sample
-
 import wave
 import numpy as np
 import math
@@ -181,10 +179,11 @@ def compute_mfcc_np(signal):
     :param signal: input audio signal as a numpy array
     :return: 2D array of MFCC features (num_frames x NUM_MFCC)
     """
+    audio_np = signal.astype(np.float32) / 32768.0
 
-    signal = pre_emphasis(signal)
+    emphasised_signal = pre_emphasis(audio_np)
 
-    frames = framing(signal)
+    frames = framing(emphasised_signal)
     frames = windowing(frames)
 
     power = power_spectrum(frames)
@@ -199,11 +198,11 @@ def compute_mfcc_np(signal):
 
     return mfcc
 
-#Test the code with a sample .wav file from the speech commands dataset.
+""" #Test the code with a sample .wav file from the speech commands dataset.
 if __name__ == "__main__":
     audio, label_idx, label_name = fetch_one_tfds_sample(split="test")
     mfcc =  compute_mfcc_np(audio)
     print(f"MFCC shape: {mfcc.shape}, Label: {label_name}")
     np.set_printoptions(precision=4, suppress=True, linewidth=160) 
     print("MFCC features for the first frame:")
-    print(mfcc)
+    print(mfcc) """
