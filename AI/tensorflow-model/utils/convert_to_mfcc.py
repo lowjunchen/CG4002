@@ -1,8 +1,11 @@
+import signal
 import wave
 import numpy as np
 import math
 
 SAMPLE_RATE = 16000
+WINDOW_SECONDS = 1.0
+WINDOW_SAMPLES = int(SAMPLE_RATE * WINDOW_SECONDS)
 FRAME_LENGTH = 400
 FRAME_STEP = 160
 FFT_SIZE = 512
@@ -25,7 +28,6 @@ def load_wav(filename):
 
         samples = wf.readframes(wf.getnframes())
         signal = np.frombuffer(samples, dtype=np.int16).astype(np.float32)
-        signal /= 32768.0 #Normalize signals to [-1, 1]
         return signal
     
 def pre_emphasis(signal):
@@ -155,9 +157,17 @@ def compute_mfcc_wav(filename):
     """
 
     signal = load_wav(filename)
-    signal = pre_emphasis(signal)
+    audio_np = signal.astype(np.float32) / 32768.0
 
-    frames = framing(signal)
+    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    if audio_np.shape[0] < WINDOW_SAMPLES:
+        audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
+    else:
+        audio_np = audio_np[:WINDOW_SAMPLES]
+
+    emphasised_signal = pre_emphasis(audio_np)
+
+    frames = framing(emphasised_signal)
     frames = windowing(frames)
 
     power = power_spectrum(frames)
@@ -180,6 +190,12 @@ def compute_mfcc_np(signal):
     :return: 2D array of MFCC features (num_frames x NUM_MFCC)
     """
     audio_np = signal.astype(np.float32) / 32768.0
+
+    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    if audio_np.shape[0] < WINDOW_SAMPLES:
+        audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
+    else:
+        audio_np = audio_np[:WINDOW_SAMPLES]
 
     emphasised_signal = pre_emphasis(audio_np)
 

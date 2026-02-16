@@ -129,13 +129,6 @@ def fetch_speech_data_in_mfcc(
     def keep_only_targets(ex):
         lbl = tf.cast(ex['label'], tf.int64)
         return tf.reduce_any(tf.equal(lbl, keep_ids))
-
-    def pad_to_1s(audio):
-        audio = audio[:SAMPLE_RATE]
-        pad = SAMPLE_RATE - tf.shape(audio)[0]
-        audio = tf.cond(pad > 0, lambda: tf.pad(audio, [[0, pad]]), lambda: audio)
-        audio.set_shape([SAMPLE_RATE])
-        return audio
     
     def audio_to_mfcc(audio_int16):
         def _np_mfcc(audio_np):
@@ -148,8 +141,7 @@ def fetch_speech_data_in_mfcc(
         return mfcc
 
     def preprocess(ex):
-        audio = pad_to_1s(ex['audio'])
-        mfcc = audio_to_mfcc(audio)
+        mfcc = audio_to_mfcc(ex['audio'])
         label = tf.gather(tfds_to_compact_tf, tf.cast(ex['label'], tf.int64))
         return mfcc, label
 
