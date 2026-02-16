@@ -1,2 +1,3 @@
 /data/tensorflow_datasets
 */__pycache__
+/cnn_kws_model/
