@@ -3,6 +3,11 @@ import tensorflow as tf
 from utils.convert_to_mfcc import compute_mfcc_np
 
 def extract_IO_shapes(model_path="cnn_kws_model"):
+    """
+    Load the trained KWS model and extract input/output shapes, weight shapes, and activation ranges.
+
+    :param model_path: Path to the saved KWS model (default: "cnn_kws_model")
+    """
     model = tf.keras.models.load_model(model_path)
 
     print("Model input shape :", model.input_shape)   # (None, H, W, C)
@@ -42,6 +47,9 @@ def extract_IO_shapes(model_path="cnn_kws_model"):
         print(f"{layer.name:25s} shape={out_np.shape} min={out_np.min():.4f} max={out_np.max():.4f}")
 
 def extract_mfcc_shapes():
+    """
+    Generate dummy audio data and compute MFCCs to verify the expected shape.
+    """
     dummy = (np.random.randn(16000) * 1000).astype(np.int16)  # Use dummy audio data to test MFCC extraction
     mfcc = compute_mfcc_np(dummy)
 
