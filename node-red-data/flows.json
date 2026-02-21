@@ -8,6 +8,68 @@
         "env": []
     },
     {
+        "id": "2e344e2c0399884a",
+        "type": "mqtt-broker",
+        "name": "HiveMQ",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "e5ed26465bcdc1da",
+        "type": "mqtt-broker",
+        "name": "Mosquitto",
+        "broker": "mosquitto",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
         "id": "c9ae84edd95d1608",
         "type": "json",
         "z": "73544b573df69959",
@@ -15,7 +77,7 @@
         "property": "payload",
         "action": "obj",
         "pretty": false,
-        "x": 350,
+        "x": 370,
         "y": 120,
         "wires": [
             [
@@ -27,7 +89,7 @@
         "id": "c5f1138ab141294d",
         "type": "mqtt in",
         "z": "73544b573df69959",
-        "name": "",
+        "name": "HiveMQ sensors/device/1",
         "topic": "sensors/device/1",
         "qos": "2",
         "datatype": "auto-detect",
@@ -48,7 +110,7 @@
         "id": "4a4344a34459fb46",
         "type": "mqtt in",
         "z": "73544b573df69959",
-        "name": "",
+        "name": "HiveMQ sensors/device/2",
         "topic": "sensors/device/2",
         "qos": "2",
         "datatype": "auto-detect",
@@ -69,7 +131,7 @@
         "id": "9f25e52f5ed1f185",
         "type": "mqtt in",
         "z": "73544b573df69959",
-        "name": "",
+        "name": "HiveMQ sensors/headset/1",
         "topic": "sensors/headset/1",
         "qos": "2",
         "datatype": "auto-detect",
@@ -87,6 +149,69 @@
         ]
     },
     {
+        "id": "c8e6ec5fe06ddcca",
+        "type": "mqtt in",
+        "z": "73544b573df69959",
+        "name": "Mosquitto sensors/device/1",
+        "topic": "sensors/device/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "c9ae84edd95d1608"
+            ]
+        ]
+    },
+    {
+        "id": "7389c330fe12f322",
+        "type": "mqtt in",
+        "z": "73544b573df69959",
+        "name": "Mosquitto sensors/device/2",
+        "topic": "sensors/device/2",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "70bcb10486c3ac33"
+            ]
+        ]
+    },
+    {
+        "id": "b9ea3c15466bf51a",
+        "type": "mqtt in",
+        "z": "73544b573df69959",
+        "name": "Mosquitto sensors/headset/1",
+        "topic": "sensors/headset/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 360,
+        "wires": [
+            [
+                "08ddbc8a596d4f94"
+            ]
+        ]
+    },
+    {
         "id": "70bcb10486c3ac33",
         "type": "json",
         "z": "73544b573df69959",
@@ -94,7 +219,7 @@
         "property": "payload",
         "action": "obj",
         "pretty": false,
-        "x": 350,
+        "x": 370,
         "y": 220,
         "wires": [
             [
@@ -110,7 +235,7 @@
         "property": "payload",
         "action": "obj",
         "pretty": false,
-        "x": 350,
+        "x": 370,
         "y": 320,
         "wires": [
             [
@@ -219,36 +344,5 @@
         "x": 140,
         "y": 280,
         "wires": []
-    },
-    {
-        "id": "2e344e2c0399884a",
-        "type": "mqtt-broker",
-        "name": "",
-        "broker": "broker.hivemq.com",
-        "port": 1883,
-        "clientid": "",
-        "autoConnect": true,
-        "usetls": false,
-        "protocolVersion": 4,
-        "keepalive": 60,
-        "cleansession": true,
-        "autoUnsubscribe": true,
-        "birthTopic": "",
-        "birthQos": "0",
-        "birthRetain": "false",
-        "birthPayload": "",
-        "birthMsg": {},
-        "closeTopic": "",
-        "closeQos": "0",
-        "closeRetain": "false",
-        "closePayload": "",
-        "closeMsg": {},
-        "willTopic": "",
-        "willQos": "0",
-        "willRetain": "false",
-        "willPayload": "",
-        "willMsg": {},
-        "userProps": "",
-        "sessionExpiry": ""
     }
 ]
