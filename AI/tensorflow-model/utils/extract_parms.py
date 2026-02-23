@@ -2,6 +2,10 @@ import numpy as np
 import tensorflow as tf
 from utils.convert_to_mfcc import compute_mfcc_np
 
+"""
+Script to extract input/output shapes, weight shapes, and activation ranges from the trained KWS model.
+"""
+
 def extract_IO_shapes(model_path="cnn_kws_model"):
     """
     Load the trained KWS model and extract input/output shapes, weight shapes, and activation ranges.
