@@ -1,0 +1,11 @@
+#pragma once
+#include <hls_stream.h>
+#include <ap_int.h>
+#include "kws_hls.h"
+
+struct axis_t {
+    data_t data;
+    ap_uint<1> last;
+};
+
+void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out);
