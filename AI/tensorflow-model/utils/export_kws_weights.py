@@ -13,7 +13,7 @@ def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def write_h_header(filepath, var_name, array, dtype="float"):
+def write_h_header(filepath, var_name, array, dtype="data_t"):
     """
     Initialize a C header file with a static const array definition.
 
@@ -25,7 +25,8 @@ def write_h_header(filepath, var_name, array, dtype="float"):
     flat = array.flatten()
 
     with open(filepath, "w") as f:
-        f.write("#pragma once\n\n")
+        f.write("#pragma once\n")
+        f.write("#include \"kws_hls.h\"\n\n") # Include header to define fixed-point datatype data_t
         f.write(f"static const {dtype} {var_name}[{len(flat)}] = {{\n")
 
         # Write values in scientific notation, 8 per line
