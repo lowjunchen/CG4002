@@ -65,12 +65,13 @@ int main() {
     hls::stream<axis_t> s_in;
     hls::stream<axis_t> s_out;
 
-    // Drive input stream in raster order: h-major then w ( to match earlier kernel)
-    // in[h][w][0] = next stream element
-    for (int i = 0; i < IN_LEN; i++) {
+    // Drive input stream in raster order: h-major then w
+    for (int i = 0; i < IN_LEN; i++) { // in[h][w][0] = next stream element
         axis_t t;
+        
         t.data = (data_t)mfcc_flat[i];
         t.last = (i == IN_LEN - 1) ? 1 : 0;
+        
         s_in.write(t);
     }
 
@@ -79,15 +80,16 @@ int main() {
 
     // Read outputs
     std::vector<float> dut_logits(OUT_LEN, 0.0f);
+    
     for (int i = 0; i < OUT_LEN; i++) {
         if (s_out.empty()) {
             std::cerr << "ERROR: Output stream empty at i=" << i << "\n";
             return 1;
         }
-        axis_t t = s_out.read();
+        axis_t t = s_out.read(); // Use blocking reading
         dut_logits[i] = (float)t.data;
 
-        // Check TLAST correctness
+        // Include TLAST as additional check for data input
         if (i < OUT_LEN - 1 && t.last != 0) {
             std::cerr << "WARNING: TLAST asserted early at i=" << i << "\n";
         }
