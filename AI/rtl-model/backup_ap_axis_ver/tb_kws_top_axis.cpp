@@ -7,12 +7,11 @@
 #include <cmath>
 #include <algorithm>
 
+//Include HLS definitions
 #include "kws_hls.h"
 #include "kws_top.h"
 
-// -----------------------------
 // CSV Utils
-// -----------------------------
 static bool load_csv_floats(const std::string &path, std::vector<float> &out) {
     std::ifstream fin(path.c_str());
     if (!fin) {
@@ -43,7 +42,7 @@ int main() {
     const std::string in_path  = "tb/io/mfcc_in_0.csv";
     const std::string ref_path = "tb/io/logits_out_0.csv";
 
-    // Load I/O data
+    // Load I/O data from Tensorflow
     std::vector<float> mfcc_flat;
     std::vector<float> ref_logits;
     if (!load_csv_floats(in_path, mfcc_flat)) return 1;
@@ -66,11 +65,7 @@ int main() {
     hls::stream<axis_t> s_in;
     hls::stream<axis_t> s_out;
 
-    // -----------------------------
-    // Push input samples (simple style)
-    // -----------------------------
-    // NOTE: Your DUT does not use input TLAST. Keep it 0 to avoid framing assumptions.
-    // (If you want to mark frame end anyway, set last on final sample.)
+    // Drive input stream
     fp_conv pack;
     for (int i = 0; i < IN_LEN; i++) {
         axis_t t;
@@ -83,14 +78,10 @@ int main() {
         s_in.write(t);
     }
 
-    // -----------------------------
     // Call DUT
-    // -----------------------------
     kws_top(s_in, s_out);
 
-    // -----------------------------
-    // Read exactly OUT_LEN outputs (mimic proven working example)
-    // -----------------------------
+    // Read outputs
     std::vector<float> dut_logits(OUT_LEN, 0.0f);
 
     bool saw_last = false;
@@ -116,11 +107,9 @@ int main() {
                   << OUT_LEN << " outputs.\n";
     }
 
-    // -----------------------------
-    // Compare against reference
-    // -----------------------------
-    const float atol = 1e-3f;
-    const float rtol = 1e-3f;
+    // Compare Absolute and Relative Tolerance
+    const float atol = 1e-3f; // Absolute Tolerance
+    const float rtol = 1e-3f; // Relative Tolerance
 
     float max_abs_err = 0.0f;
     float max_rel_err = 0.0f;
