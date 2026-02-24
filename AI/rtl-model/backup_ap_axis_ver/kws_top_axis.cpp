@@ -25,16 +25,17 @@ void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
     static data_t gap  [C3_COUT];
     static data_t out  [NUM_CLASSES];
 
-// Ensure completeness of key arrays gap and out
 #pragma HLS ARRAY_PARTITION variable=gap complete
 #pragma HLS ARRAY_PARTITION variable=out complete
 
-    // Read input stream -> in[98][13][1]
+    // Read input stream -> in[98][13][1], using float point converter
+    fp_conv conv_in;
     for (int h = 0; h < IN_H; h++) {
         for (int w = 0; w < IN_W; w++) {
 #pragma HLS PIPELINE II=1
             axis_t t = s_in.read();
-            in[h][w][0] = t.data;
+            conv_in.u = (unsigned int)t.data;     // ap_uint<32> -> uint32 bits
+            in[h][w][0] = (data_t)conv_in.f;      // float -> ap_fixed<32,12>
         }
     }
 
@@ -60,11 +61,16 @@ void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
     dense<C3_COUT, NUM_CLASSES>(gap, out, dense_w, dense_b);
 
     // Write logits
+    fp_conv conv_out;
     for (int i = 0; i < NUM_CLASSES; i++) {
 #pragma HLS PIPELINE II=1
         axis_t t;
-        t.data = out[i];
+
+        conv_out.f = (float)out[i];           // ap_fixed -> float (numeric)
+        t.data = (ap_uint<32>)conv_out.u;     // float bits -> AXIS payload
+
         t.last = (i == NUM_CLASSES - 1) ? 1 : 0;
+
         s_out.write(t);
     }
 }
