@@ -15,6 +15,8 @@ void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
 #pragma HLS INTERFACE axis port=s_out
 #pragma HLS INTERFACE ap_ctrl_none port=return
 
+#pragma HLS ALLOCATION operation instances=mul limit=128 // DSP cap
+
     static data_t in   [IN_H][IN_W][IN_C];
     static data_t c1   [IN_H][IN_W][C1_COUT];
     static data_t p1   [P1_H][P1_W][C1_COUT];
@@ -36,19 +38,20 @@ void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
         }
     }
 
-    // Conv2d layer 1 + ReLU + Pooling
-    conv2d_3x3<IN_H, IN_W, IN_C, C1_COUT>(in, c1, conv2d_w, conv2d_b);
-    relu_inplace<IN_H, IN_W, C1_COUT>(c1);
+    // Conv2d layer 1 + ReLU
+    conv2d_3x3_relu<IN_H, IN_W, IN_C, C1_COUT>(in, c1, conv2d_w, conv2d_b);
+    
+    // Pooling
     maxpool2x2_stride2<IN_H, IN_W, C1_COUT, P1_H, P1_W>(c1, p1);
 
-    // Conv2d layer 2 + ReLU + Pooling
-    conv2d_3x3<P1_H, P1_W, C1_COUT, C2_COUT>(p1, c2, conv2d_1_w, conv2d_1_b);
-    relu_inplace<P1_H, P1_W, C2_COUT>(c2);
+    // Conv2d layer 2 + ReLU
+    conv2d_3x3_relu<P1_H, P1_W, C1_COUT, C2_COUT>(p1, c2, conv2d_1_w, conv2d_1_b);
+    
+    // Pooling
     maxpool2x2_stride2<P1_H, P1_W, C2_COUT, P2_H, P2_W>(c2, p2);
 
-    // Conv2d layer 3 + ReLU + Pooling
-    conv2d_3x3<P2_H, P2_W, C2_COUT, C3_COUT>(p2, c3, conv2d_2_w, conv2d_2_b);
-    relu_inplace<P2_H, P2_W, C3_COUT>(c3);
+    // Conv2d layer 3 + ReLU
+    conv2d_3x3_relu<P2_H, P2_W, C2_COUT, C3_COUT>(p2, c3, conv2d_2_w, conv2d_2_b);
 
     // Global Average Pooling
     global_avg_pool<P2_H, P2_W, C3_COUT>(c3, gap);
