@@ -13,7 +13,6 @@
 void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
 #pragma HLS INTERFACE axis port=s_in
 #pragma HLS INTERFACE axis port=s_out
-#pragma HLS INTERFACE ap_ctrl_none port=return
 
 #pragma HLS ALLOCATION operation instances=mul limit=128 // DSP cap
 
@@ -26,6 +25,7 @@ void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
     static data_t gap  [C3_COUT];
     static data_t out  [NUM_CLASSES];
 
+// Ensure completeness of key arrays gap and out
 #pragma HLS ARRAY_PARTITION variable=gap complete
 #pragma HLS ARRAY_PARTITION variable=out complete
 
