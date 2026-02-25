@@ -1,4 +1,5 @@
 from utils.convert_to_mfcc import compute_mfcc_np
+from utils.write_wav import write_wav_int16
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
@@ -188,5 +189,46 @@ def fetch_speech_data_in_mfcc(
     """
     return train_out, test_out
 
+def fetch_speech_data_in_wav(
+        dataset_name="speech_commands",
+        data_dir=None,
+        split="test",
+        output_dir="data/wav_samples",
+        seed = 1234
+):
+    target_commands = ['go', 'on', 'stop', 'up', 'down', '_silence_', '_unknown_']
+    
+    if data_dir is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(script_dir, 'tensorflow_datasets')
+
+    ds, info = tfds.load(dataset_name, split=split, with_info=True, data_dir=data_dir)
+    label_names = info.features["label"].names
+
+    rng = np.random.default_rng(seed)
+
+    got = {k: False for k in target_commands}
+    saved_paths = {}
+
+    for ex in tfds.as_numpy(ds):
+        audio = ex["audio"]         
+        label_idx = int(ex["label"])
+        label_name = label_names[label_idx]
+
+        if label_name in target_commands and not got[label_name]:
+            path = os.path.join(output_dir, f"{label_name}.wav")
+            write_wav_int16(path, audio, SAMPLE_RATE)
+            got[label_name] = True
+            saved_paths[label_name] = path
+
+        if all(got.values()):
+            break
+
+    print("Saved:")
+    for k in target_commands:
+        if k in saved_paths:
+            print(f"  {k:10s} -> {saved_paths[k]}")
+    
+
 if __name__ == "__main__":
-    fetch_speech_data_in_mfcc()
+    fetch_speech_data_in_wav()
