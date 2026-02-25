@@ -213,11 +213,7 @@ def compute_mfcc_np(signal):
 
     return mfcc
 
-""" #Test the code with a sample .wav file from the speech commands dataset.
 if __name__ == "__main__":
-    audio, label_idx, label_name = fetch_one_tfds_sample(split="test")
-    mfcc =  compute_mfcc_np(audio)
-    print(f"MFCC shape: {mfcc.shape}, Label: {label_name}")
-    np.set_printoptions(precision=4, suppress=True, linewidth=160) 
-    print("MFCC features for the first frame:")
-    print(mfcc) """
+    mfcc = compute_mfcc_wav("data/wav_samples/down.wav")
+    print("MFCC shape:", mfcc.shape)
+    print("MFCC dtype:", mfcc.dtype)
