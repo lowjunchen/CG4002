@@ -43,10 +43,10 @@
         "type": "mqtt-broker",
         "name": "Mosquitto",
         "broker": "mosquitto",
-        "port": 1883,
+        "port": 8883,
         "clientid": "",
         "autoConnect": true,
-        "usetls": false,
+        "usetls": true,
         "protocolVersion": 4,
         "keepalive": 60,
         "cleansession": true,
@@ -67,7 +67,19 @@
         "willPayload": "",
         "willMsg": {},
         "userProps": "",
-        "sessionExpiry": ""
+        "sessionExpiry": "",
+        "tls": "f1b2c3d4e5f60718"
+    },
+    {
+        "id": "f1b2c3d4e5f60718",
+        "type": "tls-config",
+        "name": "Mosquitto mTLS",
+        "cert": "/data/certs/clients/nodered.crt",
+        "key": "/data/certs/clients/nodered.key",
+        "ca": "/data/certs/ca.crt",
+        "verifyservercert": true,
+        "alpnprotocol": "",
+        "servername": ""
     },
     {
         "id": "c9ae84edd95d1608",
@@ -413,7 +425,7 @@
         "label": "HiveMQ Inputs",
         "id": "1d7610f5cb6c8828",
         "info": "",
-        "disabled": false,
+        "disabled": true,
         "env": []
     },
     {
@@ -526,7 +538,7 @@
         "label": "Mosquitto Inputs",
         "id": "c474bad29accdf39",
         "info": "",
-        "disabled": true,
+        "disabled": false,
         "env": []
     },
     {
