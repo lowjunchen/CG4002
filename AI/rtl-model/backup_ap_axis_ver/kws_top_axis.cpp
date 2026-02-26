@@ -13,6 +13,7 @@
 void kws_top(hls::stream<axis_t> &s_in, hls::stream<axis_t> &s_out) {
 #pragma HLS INTERFACE axis port=s_in
 #pragma HLS INTERFACE axis port=s_out
+#pragma HLS INTERFACE s_axilite port=return bundle=CTRL // Change to AXI-Lite IP control
 
 #pragma HLS ALLOCATION operation instances=mul limit=128 // DSP cap
 
