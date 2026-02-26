@@ -114,3 +114,10 @@ openssl x509 -req -in clients/nodered.csr -CA ca.crt -CAkey ca.key -CAcreateseri
 cd ../../
 docker compose up -d
 ```
+
+**Why Node-RED Has a Client Cert**
+Mosquitto is configured for mutual TLS (`require_certificate true`), which means every client must present a valid client certificate signed by the CA. Node-RED is a client, so it needs its own cert/key pair.
+
+**Where Other Components Should Connect**
+- Publish/subscribe clients should connect directly to the broker over TLS using their own client certs.
+- Use Node-RED only if want processing/aggregation/visualization of the streams.
