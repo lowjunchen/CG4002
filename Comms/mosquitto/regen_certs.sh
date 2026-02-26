@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CERT_DIR="${SCRIPT_DIR}/certs"
+
+cd "${CERT_DIR}"
+
+echo "Regenerating CA..."
+rm -f ca.key ca.crt ca.srl
+openssl genrsa -out ca.key 2048
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
+  -subj "/CN=capstone-mosquitto-ca" -out ca.crt
+
+echo "Regenerating server cert..."
+rm -f server.key server.csr server.crt
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -subj "/CN=mosquitto" -out server.csr
+cat > server.ext <<'EOF'
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:mosquitto,DNS:host.docker.internal
+EOF
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out server.crt -days 825 -sha256 -extfile server.ext
+
+echo "Regenerating client certs..."
+rm -f client.ext clients/*.key clients/*.csr clients/*.crt
+mkdir -p clients
+cat > client.ext <<'EOF'
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=clientAuth
+EOF
+
+openssl genrsa -out clients/simulator.key 2048
+openssl req -new -key clients/simulator.key -subj "/CN=simulator" -out clients/simulator.csr
+openssl x509 -req -in clients/simulator.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/simulator.crt -days 825 -sha256 -extfile client.ext
+
+openssl genrsa -out clients/nodered.key 2048
+openssl req -new -key clients/nodered.key -subj "/CN=nodered" -out clients/nodered.csr
+openssl x509 -req -in clients/nodered.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/nodered.crt -days 825 -sha256 -extfile client.ext
+
+echo "Restarting containers..."
+cd "${SCRIPT_DIR}/.."
+docker compose up -d
+
+echo "Done."

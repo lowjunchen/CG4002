@@ -4,8 +4,10 @@ services:
     container_name: mosquitto
     ports:
       - "1883:1883"
+      - "8883:8883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/certs:/mosquitto/config/certs:ro
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     restart: unless-stopped
@@ -17,6 +19,7 @@ services:
       - "1880:1880"
     volumes:
       - ./node-red-data:/data
+      - ./mosquitto/certs:/data/certs:ro
     depends_on:
       - mosquitto
     restart: unless-stopped
