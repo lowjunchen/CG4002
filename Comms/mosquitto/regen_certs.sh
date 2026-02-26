@@ -46,6 +46,24 @@ openssl req -new -key clients/nodered.key -subj "/CN=nodered" -out clients/noder
 openssl x509 -req -in clients/nodered.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
   -out clients/nodered.crt -days 825 -sha256 -extfile client.ext
 
+# left_glove
+openssl genrsa -out clients/left_glove.key 2048
+openssl req -new -key clients/left_glove.key -subj "/CN=left_glove" -out clients/left_glove.csr
+openssl x509 -req -in clients/left_glove.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/left_glove.crt -days 825 -sha256 -extfile client.ext
+
+# right_glove
+openssl genrsa -out clients/right_glove.key 2048
+openssl req -new -key clients/right_glove.key -subj "/CN=right_glove" -out clients/right_glove.csr
+openssl x509 -req -in clients/right_glove.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/right_glove.crt -days 825 -sha256 -extfile client.ext
+
+# headset
+openssl genrsa -out clients/headset.key 2048
+openssl req -new -key clients/headset.key -subj "/CN=headset" -out clients/headset.csr
+openssl x509 -req -in clients/headset.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/headset.crt -days 825 -sha256 -extfile client.ext
+
 echo "Restarting containers..."
 cd "${SCRIPT_DIR}/.."
 docker compose up -d

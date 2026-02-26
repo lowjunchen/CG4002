@@ -2,7 +2,11 @@
 #include <Wire.h>
 #include "Adafruit_MAX1704X.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
+
+#define DEVICE_RIGHT_GLOVE
+#include "../certs.h"
 
 #define DEVICE_ID "2"
 
@@ -11,10 +15,10 @@ const char* ssid = "LOW's S24+"; // My phone will always be with me. Network (sh
 const char* password = "uuykg2ags4uyncf";
 
 // -------- MQTT --------
-const char* mqttServer = "broker.hivemq.com"; // No longer need to set IP Address
-const int mqttPort = 1883;
+const char* mqttServer = "192.168.0.10"; // TODO: set to your laptop LAN IP
+const int mqttPort = 8883;
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
 // -------- MAX17048 --------
@@ -109,6 +113,12 @@ void connectMQTT() {
   }
 }
 
+void configureTLS() {
+  espClient.setCACert(CA_CERT);
+  espClient.setCertificate(CLIENT_CERT);
+  espClient.setPrivateKey(CLIENT_KEY);
+}
+
 // -------- Setup --------
 
 void setup() {
@@ -119,6 +129,7 @@ void setup() {
   analogReadResolution(12);
 
   connectWiFi();
+  configureTLS();
   connectMQTT();
 
   // MPU6050 init

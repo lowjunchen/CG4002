@@ -23,6 +23,15 @@ The broker presents `server.crt` to clients, and clients must also present a val
 - `Comms/mosquitto/certs/clients/nodered.key`
 - `Comms/mosquitto/certs/clients/nodered.csr`
 - `Comms/mosquitto/certs/clients/nodered.crt`
+- `Comms/mosquitto/certs/clients/left_glove.key`
+- `Comms/mosquitto/certs/clients/left_glove.csr`
+- `Comms/mosquitto/certs/clients/left_glove.crt`
+- `Comms/mosquitto/certs/clients/right_glove.key`
+- `Comms/mosquitto/certs/clients/right_glove.csr`
+- `Comms/mosquitto/certs/clients/right_glove.crt`
+- `Comms/mosquitto/certs/clients/headset.key`
+- `Comms/mosquitto/certs/clients/headset.csr`
+- `Comms/mosquitto/certs/clients/headset.crt`
 
 **Mosquitto Configuration**
 TLS is configured in `Comms/mosquitto/mosquitto.conf`:
