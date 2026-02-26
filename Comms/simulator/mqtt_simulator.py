@@ -12,14 +12,21 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import ssl
 import sys
 import time
+from pathlib import Path
 
 try:
     import paho.mqtt.client as mqtt
 except ImportError:  # pragma: no cover
     print("Missing dependency: paho-mqtt. Install with: python3 -m pip install paho-mqtt")
     sys.exit(1)
+
+CERTS_DIR = Path(__file__).resolve().parents[1] / "mosquitto" / "certs"
+DEFAULT_CA = CERTS_DIR / "ca.crt"
+DEFAULT_CLIENT_CERT = CERTS_DIR / "clients" / "simulator.crt"
+DEFAULT_CLIENT_KEY = CERTS_DIR / "clients" / "simulator.key"
 
 
 def clamp(value: float, lo: float, hi: float) -> float:
@@ -87,10 +94,15 @@ def publish(client: mqtt.Client, topic: str, payload: dict) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="MQTT telemetry simulator")
     parser.add_argument("--host", default="localhost")
-    parser.add_argument("--port", type=int, default=1883)
+    parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--username")
     parser.add_argument("--password")
     parser.add_argument("--client-id", default="")
+    parser.add_argument("--tls", action="store_true", help="enable TLS (mTLS by default)")
+    parser.add_argument("--cafile", help="CA certificate file (defaults to local CA)")
+    parser.add_argument("--certfile", help="Client certificate file (defaults to simulator cert)")
+    parser.add_argument("--keyfile", help="Client key file (defaults to simulator key)")
+    parser.add_argument("--insecure", action="store_true", help="skip TLS hostname verification")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--once", action="store_true", help="publish one batch and exit")
     parser.add_argument("--left-interval", type=float, default=0.5)
@@ -100,10 +112,35 @@ def main() -> int:
 
     rng = random.Random(args.seed)
 
+    port = args.port if args.port is not None else (8883 if args.tls else 1883)
+
     client = mqtt.Client(client_id=args.client_id or None)
     if args.username:
         client.username_pw_set(args.username, args.password)
-    client.connect(args.host, args.port, keepalive=60)
+    if args.tls:
+        cafile = args.cafile or str(DEFAULT_CA)
+        certfile = args.certfile or str(DEFAULT_CLIENT_CERT)
+        keyfile = args.keyfile or str(DEFAULT_CLIENT_KEY)
+
+        for label, path in {
+            "cafile": cafile,
+            "certfile": certfile,
+            "keyfile": keyfile,
+        }.items():
+            if not Path(path).exists():
+                print(f"TLS enabled but {label} not found: {path}")
+                return 1
+
+        client.tls_set(
+            ca_certs=cafile,
+            certfile=certfile,
+            keyfile=keyfile,
+            tls_version=ssl.PROTOCOL_TLS_CLIENT,
+            cert_reqs=ssl.CERT_REQUIRED,
+        )
+        if args.insecure:
+            client.tls_insecure_set(True)
+    client.connect(args.host, port, keepalive=60)
     client.loop_start()
 
     next_left = 0.0
