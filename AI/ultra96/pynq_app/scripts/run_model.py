@@ -1,5 +1,6 @@
 import os
-import json 
+import json
+import argparse 
 import numpy as np
 import time
 
@@ -12,10 +13,10 @@ from pynq_app.src.config import AXIS_W, IN_LEN, OUT_LEN
 from pynq_app.utils.postprocess_data import logits_to_label
 from pynq_app.utils.preprocess_data import compute_mfcc_wav
 
-def main():
+def main(input_path):
     os.makedirs("data/output", exist_ok=True)
 
-    in_wav = "data/input/go.wav"
+    in_wav = input_path
     if not os.path.exists(in_wav):
         raise FileNotFoundError(f"Missing input wav: {in_wav}")
 
@@ -91,4 +92,13 @@ def main():
     print("Wrote: data/output/result.json and data/output/result.txt")    
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="PYNQ CNN inference")
+    parser.add_argument(
+        "--input_path",
+        "-i",
+        required=True,
+        help="Path to input WAV file",
+    )
+    args = parser.parse_args()
+
+    main(args.input_path)
