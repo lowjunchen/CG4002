@@ -64,6 +64,13 @@ openssl req -new -key clients/headset.key -subj "/CN=headset" -out clients/heads
 openssl x509 -req -in clients/headset.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
   -out clients/headset.crt -days 825 -sha256 -extfile client.ext
 
+if command -v python3 >/dev/null 2>&1; then
+  echo "Updating Hardware/certs.h..."
+  python3 "${SCRIPT_DIR}/export_hardware_certs.py"
+else
+  echo "Warning: python3 not found; Hardware/certs.h not updated."
+fi
+
 echo "Restarting containers..."
 cd "${SCRIPT_DIR}/.."
 docker compose up -d
