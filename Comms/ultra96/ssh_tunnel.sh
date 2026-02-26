@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Load env file if present
-ENV_FILE="${ENV_FILE:-$(dirname "$0")/tunnel.env}"
+ENV_FILE="${ENV_FILE:-$(dirname "$0")/tunnel.env.example}"
 if [[ -f "${ENV_FILE}" ]]; then
   # shellcheck disable=SC1090
   source "${ENV_FILE}"
