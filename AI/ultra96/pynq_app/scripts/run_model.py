@@ -9,16 +9,20 @@ from pynq import PL
 from pynq_app.src.overlay_loader import load_overlay
 from pynq_app.src.dma_control import dma_transfer_axis32
 from pynq_app.src.config import AXIS_W, IN_LEN, OUT_LEN
+from pynq_app.src.power_manager import apply_profile
 
 from pynq_app.utils.postprocess_data import logits_to_label
 from pynq_app.utils.preprocess_data import compute_mfcc_wav
 
-def main(input_path):
+def main(input_path, pre_profile="performance", post_profile="powersave"):
     os.makedirs("data/output", exist_ok=True)
 
     in_wav = input_path
     if not os.path.exists(in_wav):
         raise FileNotFoundError(f"Missing input wav: {in_wav}")
+
+    # Runtime power profile before active work.
+    apply_profile(pre_profile)
 
     PL.reset()
 
@@ -75,7 +79,7 @@ def main(input_path):
         "predicted_label": pred_label,
         "timing_ms": {
             "preprocess": (t1 - t0) * 1000.0,
-            "overlay_load_and_dma": (t3 - t2) * 1000.0,
+            "prediction_time": (t3 - t2) * 1000.0,
             "total": (t3 - t0) * 1000.0,
         },
     }
@@ -89,7 +93,11 @@ def main(input_path):
         f.write(f"Logits: {logits}\n")
 
     print(f"Predicted: {pred_label} (idx={pred_idx})")
+    print(f"Time used for prediction (in ms): ", (t3 - t2) * 1000.0)
     print("Wrote: data/output/result.json and data/output/result.txt")    
+
+    # Runtime power profile after active work.
+    apply_profile(post_profile)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PYNQ CNN inference")
@@ -99,6 +107,22 @@ if __name__ == "__main__":
         required=True,
         help="Path to input WAV file",
     )
+    parser.add_argument(
+        "--pre_profile",
+        choices=["performance", "powersave"],
+        default="performance",
+        help="Power profile to apply before inference",
+    )
+    parser.add_argument(
+        "--post_profile",
+        choices=["performance", "powersave"],
+        default="powersave",
+        help="Power profile to apply after inference",
+    )
     args = parser.parse_args()
 
-    main(args.input_path)
+    main(
+        input_path=args.input_path,
+        pre_profile=args.pre_profile,
+        post_profile=args.post_profile,
+    )
