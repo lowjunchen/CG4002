@@ -1,4 +1,4 @@
-OVERLAY_BIT = "/home/ai_cg4002/overlay/kws.bit"
+OVERLAY_BIT = "/home/xilinx/ai_cg4002/overlay/kws.bit"
 
 DMA_NAME = "axi_dma_0"
 ACCEL_NAME = "kws_top_0"
