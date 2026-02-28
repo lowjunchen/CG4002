@@ -80,6 +80,7 @@ def fetch_speech_data_in_mfcc(
         data_dir=None,
         train_split="train",
         test_split="test",
+        training=True,
         batch_size=64,
         shuffle_buffer_size=1000,
         seed=1234
@@ -89,8 +90,10 @@ def fetch_speech_data_in_mfcc(
 
     :param dataset_name: Name of the dataset to load 
     :param data_dir: Optional directory to store the dataset
-    :param train_split: Which split to use for training 
-    :param test_split: Which split to use for testing 
+    :param train_split: Which split to use for training
+    :param test_split: Which split to use for testing when training=False
+    :param training: When True, split the TFDS train split into 80:20 train/test.
+                     When False, use TFDS train and TFDS test.
     :param batch_size: Batch size for training and testing 
     :param shuffle_buffer_size: Buffer size for shuffling the training data
     :param seed: Random seed for shuffling
@@ -110,11 +113,26 @@ def fetch_speech_data_in_mfcc(
         split=train_split, 
         with_info=True, 
         data_dir=data_dir)
-    
-    test_ds = tfds.load(
-        dataset_name,
-        split=test_split,
-        data_dir=data_dir)
+
+    #Build a 80:20 train-test split on the Speech Command's train dataset in training
+    if training:
+        split_source = (
+            train_ds
+            .shuffle(shuffle_buffer_size, seed=seed, reshuffle_each_iteration=False)
+            .enumerate()
+        )
+
+        train_ds = split_source.filter(lambda i, _: tf.less(tf.math.floormod(i, 10), 8)).map(
+            lambda _, ex: ex, num_parallel_calls=tf.data.AUTOTUNE
+        )
+        test_ds = split_source.filter(lambda i, _: tf.greater_equal(tf.math.floormod(i, 10), 8)).map(
+            lambda _, ex: ex, num_parallel_calls=tf.data.AUTOTUNE
+        )
+    else:
+        test_ds = tfds.load(
+            dataset_name,
+            split=test_split,
+            data_dir=data_dir)
 
     label_names = info.features["label"].names
     name_to_idx = {n: i for i, n in enumerate(label_names)}
