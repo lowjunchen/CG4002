@@ -7,6 +7,23 @@
 
 #define DEVICE_RIGHT_GLOVE
 #include "../certs.h"
+// -------- RGB LED --------
+#define PIN_RED    25
+#define PIN_GREEN  26
+#define PIN_BLUE   27
+
+#define CH_RED   0
+#define CH_GREEN 1
+#define CH_BLUE  2
+
+#define PWM_FREQ 5000
+#define PWM_RES  8   // 0–255 brightness
+
+float breatheValue = 0;
+bool breatheUp = true;
+bool whiteBlinkState = false;
+unsigned long lastBlink = 0;
+const unsigned long BLINK_INTERVAL = 500; // ms
 
 #define DEVICE_ID "2"
 
@@ -90,6 +107,7 @@ void connectWiFi() {
   WiFi.begin(ssid, password);
   Serial.print("Connecting WiFi");
   while (WiFi.status() != WL_CONNECTED) {
+    breathingColor(255,255,255);
     delay(500);
     Serial.print(".");
   }
@@ -102,6 +120,7 @@ void connectMQTT() {
   while (!client.connected()) {
     String clientId = "ESP32_" + String(DEVICE_ID);
     Serial.print("Connecting MQTT... ");
+    breathingColor(255,255,255);
 
     if (client.connect(clientId.c_str())) {
       Serial.println("connected");
@@ -119,9 +138,24 @@ void configureTLS() {
   espClient.setPrivateKey(CLIENT_KEY);
 }
 
+void setRGB(int r, int g, int b) {
+  ledcWrite(CH_RED,   r);
+  ledcWrite(CH_GREEN, g);
+  ledcWrite(CH_BLUE,  b);
+}
+
 // -------- Setup --------
 
 void setup() {
+  // RGB LED init (POWER ON immediately)
+ledcSetup(CH_RED,   PWM_FREQ, PWM_RES);
+ledcSetup(CH_GREEN, PWM_FREQ, PWM_RES);
+ledcSetup(CH_BLUE,  PWM_FREQ, PWM_RES);
+
+ledcAttachPin(PIN_RED,   CH_RED);
+ledcAttachPin(PIN_GREEN, CH_GREEN);
+ledcAttachPin(PIN_BLUE,  CH_BLUE);
+
   Serial.begin(115200);
   Wire.begin(21, 22);
 
@@ -143,6 +177,30 @@ void setup() {
 }
 
 // -------- Loop --------
+float breathePhase = 0;
+
+void breathingColor(int r, int g, int b) {
+// breathing speed
+  breathePhase += 0.06;
+
+  if (breathePhase > TWO_PI)
+      breathePhase = 0;
+
+  // smooth inhale/exhale
+  float wave = (sin(breathePhase) + 1.0) / 2.0;
+
+  // human eye correction
+  wave = pow(wave, 1.8);
+
+  // softer wearable brightness
+  int brightness = 10 + wave * 90;
+
+  int R = r * brightness / 255;
+  int G = g * brightness / 255;
+  int B = b * brightness / 255;
+
+  setRGB(R, G, B);
+}
 
 void loop() {
   if (!client.connected()) connectMQTT();
@@ -279,10 +337,6 @@ else if (TierOutput == 1 && tierCountOnes <= TIER_HISTORY / 2) {
 }
 
 // ---------------------------
-
-
-
-
   pAcX = AcXf; pAcY = AcYf; pAcZ = AcZf;
   pGyX = GyXf; pGyY = GyYf; pGyZ = GyZf;
 
@@ -303,6 +357,21 @@ else if (TierOutput == 1 && tierCountOnes <= TIER_HISTORY / 2) {
     batteryPercent = constrain((cellVoltage / 3.97) * 100.0, 0, 100);
   }
 
+// -------- RGB Battery Indicator --------
+if (batteryPercent > 0) {
+    if (batteryPercent >= 60) {
+        breathingColor(52,168,83);   // GREEN
+    }
+    else if (batteryPercent >= 30) {
+        breathingColor(255,120,0);   // ORANGE
+    }
+    else {
+        breathingColor(255,0,0);     // RED
+    }
+
+} else {
+    breathingColor(255,255,255);
+}
   // ----- MQTT JSON -----
   if (now - lastSend > SEND_INTERVAL) {
     lastSend = now;
