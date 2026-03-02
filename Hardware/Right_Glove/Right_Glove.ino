@@ -101,8 +101,17 @@ int LastBPM = 60;  // last processed BPM for alert
 
 
 // -------- Timing --------
-unsigned long lastSend = 0;
+#define MAX_SPEED_DEMO 1
+#if MAX_SPEED_DEMO
+const unsigned long SEND_INTERVAL = 20;   // 50 Hz publish for speed demo
+const unsigned long LOG_INTERVAL = 1000;  // 1 Hz logging
+#else
 const unsigned long SEND_INTERVAL = 500;
+const unsigned long LOG_INTERVAL = 500;
+#endif
+
+unsigned long lastSend = 0;
+unsigned long lastLog = 0;
 
 // -------- Functions --------
 
@@ -115,6 +124,7 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected");
+  WiFi.setSleep(false);
 }
 
 void connectMQTT() {
@@ -415,25 +425,25 @@ void loop() {
     String topic = "sensors/device/" + String(DEVICE_ID);
     client.publish(topic.c_str(), payload.c_str());
 
-    // ----- Serial print -----
-    Serial.print("Battery: ");
-    Serial.print(cellVoltage);
-    Serial.print("V, ");
-    Serial.print(batteryPercent);
-    Serial.print("%, ");
+    if (now - lastLog > LOG_INTERVAL) {
+      lastLog = now;
+      Serial.print("Battery: ");
+      Serial.print(cellVoltage);
+      Serial.print("V, ");
+      Serial.print(batteryPercent);
+      Serial.print("%, ");
 
-    Serial.print("ACC Delta: ");
-    Serial.print(accDelta);
-    Serial.print(", GYRO Delta: ");
-    Serial.print(gyroDelta);
-    // Serial.print(", Tier: "); Serial.println(TierOutput);
-    Serial.print(", Smoothed Tier (last 10): ");
-    Serial.println(smoothedTier);  // 0: Frail 1: Normal 2: NIL
+      Serial.print("ACC Delta: ");
+      Serial.print(accDelta);
+      Serial.print(", GYRO Delta: ");
+      Serial.print(gyroDelta);
+      Serial.print(", Smoothed Tier: ");
+      Serial.println(smoothedTier);
 
-    Serial.print("BPM: ");
-    Serial.print(BPM);
-    Serial.print(", BPMAlert: ");
-    Serial.println(BPMAlert ? "ALERT" : "OK");
-    Serial.println("------------------------------------------------");
+      Serial.print("BPM: ");
+      Serial.print(BPM);
+      Serial.print(", BPMAlert: ");
+      Serial.println(BPMAlert ? "ALERT" : "OK");
+    }
   }
 }
