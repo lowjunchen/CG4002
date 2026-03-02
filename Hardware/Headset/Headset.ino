@@ -6,7 +6,7 @@
 #include <PubSubClient.h>
 
 #define DEVICE_HEADSET
-#include "../certs.h"
+#include "certs.h"
 // -------- RGB LED --------
 #define PIN_RED    25
 #define PIN_GREEN  26
@@ -123,6 +123,9 @@ void setup() {
   Wire.begin(21, 22, 100000);
 
   connectWiFi();
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  time_t now = 0;
+  while (now < 1700000000) { delay(500); time(&now); }
   configureTLS();
   connectMQTT();
 
