@@ -1,0 +1,49 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/certs:/mosquitto/config/certs:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    restart: unless-stopped
+
+  nodered:
+    image: nodered/node-red:latest
+    container_name: nodered
+    ports:
+      - "1880:1880"
+    volumes:
+      - ./node-red-data:/data
+      - ./mosquitto/certs:/data/certs:ro
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  # ultra96-sim:
+  #   build:
+  #     context: ./ultra96-sim
+  #   container_name: ultra96-sim
+  #   ports:
+  #     - "8000:8000"
+  #   restart: unless-stopped
+
+  # firebeetle-sim:
+  #   build:
+  #     context: ./firebeetle-sim
+  #   container_name: firebeetle-sim
+  #   environment:
+  #     MQTT_HOST: mosquitto
+  #     MQTT_PORT: "1883"
+  #     DEVICE_ID: "glove_b"
+  #   depends_on:
+  #     - mosquitto
+  #   restart: unless-stopped
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:

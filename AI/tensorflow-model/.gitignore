@@ -1,0 +1,6 @@
+/data/tensorflow_datasets
+*/__pycache__
+/cnn_kws_model/
+/hls_weights/
+/hls_tb_io/
+/data/wav_samples/

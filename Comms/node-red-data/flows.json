@@ -1,0 +1,619 @@
+[
+    {
+        "id": "73544b573df69959",
+        "type": "tab",
+        "label": "Processing",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "2e344e2c0399884a",
+        "type": "mqtt-broker",
+        "name": "HiveMQ",
+        "broker": "broker.hivemq.com",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "e5ed26465bcdc1da",
+        "type": "mqtt-broker",
+        "name": "Mosquitto",
+        "broker": "mosquitto",
+        "port": 8883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": "",
+        "tls": "f1b2c3d4e5f60718"
+    },
+    {
+        "id": "f1b2c3d4e5f60718",
+        "type": "tls-config",
+        "name": "Mosquitto mTLS",
+        "cert": "/data/certs/clients/nodered.crt",
+        "key": "/data/certs/clients/nodered.key",
+        "ca": "/data/certs/ca.crt",
+        "verifyservercert": true,
+        "alpnprotocol": "",
+        "servername": ""
+    },
+    {
+        "id": "c9ae84edd95d1608",
+        "type": "json",
+        "z": "73544b573df69959",
+        "name": "",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 370,
+        "y": 120,
+        "wires": [
+            [
+                "a75b614833852708"
+            ]
+        ]
+    },
+    {
+        "id": "a75b614833852708",
+        "type": "function",
+        "z": "73544b573df69959",
+        "name": "function 1",
+        "func": "let devices = global.get(\"devices\") || {};\n\nconst TIMEOUT = 4000; // ms → if no update within this → treat as disconnected\nlet now = Date.now();\n\n// -------- Save incoming data --------\nif (msg.payload && msg.payload.type) {\n    devices[msg.payload.type] = {\n        ...msg.payload,\n        _ts: now   // timestamp for timeout handling\n    };\n}\n\nglobal.set(\"devices\", devices);\n\n// -------- Helper --------\nfunction valid(d) {\n    return d && (now - d._ts) < TIMEOUT;\n}\n\n// -------- Get Devices --------\nlet headset = valid(devices[\"headset\"]) ? devices[\"headset\"] : null;\nlet rightGlove = valid(devices[\"right glove\"]) ? devices[\"right glove\"] : null;\nlet leftGlove = valid(devices[\"left glove\"]) ? devices[\"left glove\"] : null;\n\n// -------- BPM Average --------\nlet bpmSum = 0;\nlet bpmCount = 0;\n\nif (rightGlove && rightGlove.bpm > 0) { bpmSum += rightGlove.bpm; bpmCount++; }\nif (leftGlove && leftGlove.bpm > 0) { bpmSum += leftGlove.bpm; bpmCount++; }\n\n// -------- Output --------\nmsg.payload = {\n    \"Worn\": headset ? (headset.movement ? 1 : 0) : 0,\n    \"H Bat\": headset ? headset.percent || 0 : 0,\n    \"Mic\": headset ? headset.p2p || 0 : 0,\n\n    \"Tier\": Math.max(\n        rightGlove ? rightGlove.Tier || 0 : 0,\n        leftGlove ? leftGlove.Tier || 0 : 0\n    ),\n\n    \"R Bat\": rightGlove ? rightGlove.percent || 0 : 0,\n    \"L Bat\": leftGlove ? leftGlove.percent || 0 : 0,\n\n    \"BPM\": bpmCount ? Math.round(bpmSum / bpmCount) : 0,\n\n    \"A\": Math.max(\n        rightGlove ? rightGlove.BPMAlert || 0 : 0,\n        leftGlove ? leftGlove.BPMAlert || 0 : 0\n    )\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 220,
+        "wires": [
+            [
+                "0d13a5c474080a2e"
+            ]
+        ]
+    },
+    {
+        "id": "da3c50a1ac6096c2",
+        "type": "debug",
+        "z": "73544b573df69959",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 880,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "0d13a5c474080a2e",
+        "type": "json",
+        "z": "73544b573df69959",
+        "name": "",
+        "property": "payload",
+        "action": "str",
+        "pretty": false,
+        "x": 710,
+        "y": 160,
+        "wires": [
+            [
+                "da3c50a1ac6096c2"
+            ]
+        ]
+    },
+    {
+        "id": "2b7b77472335b989",
+        "type": "comment",
+        "z": "73544b573df69959",
+        "name": "When to use?",
+        "info": "For demo purposes. To convert to string",
+        "x": 710,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "5f23d98d47cd7048",
+        "type": "comment",
+        "z": "73544b573df69959",
+        "name": "Variables",
+        "info": "Headset data\n(i) Worn\n- Is the device being taken on or off? (0: Not taken off/on; 1: Taken off/on)\n\n(ii) Bat\n- Headset battery level (/100)\n\n(iii) Mic\n- Mic Peak-to-peak value\n\nGloves data (R - Right; L - Left)\n(i) L Bat\n- Left battery level (/100)\n\n(ii) R Bat\n- Right battery level (/100)\n\n(iii) BPM\n- Average BPM of both L and R fingers\n\n(iv) A\n- BPM Alerts, if BPM reaches > 120 or < 60 for 10 consecutive readings \n(0: No alert; 1: Alert danger)\n\n\n",
+        "x": 540,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "9cd5316e770cfffc",
+        "type": "link in",
+        "z": "73544b573df69959",
+        "name": "From Inputs",
+        "links": [
+            "66b6bb275ec53651",
+            "089ee3ff4d4a85c6"
+        ],
+        "x": 150,
+        "y": 200,
+        "wires": [
+            [
+                "c9ae84edd95d1608"
+            ]
+        ]
+    },
+    {
+        "id": "dbc78b4a744e45e0",
+        "type": "inject",
+        "z": "73544b573df69959",
+        "name": "Toggle Broker",
+        "props": [
+            {
+                "p": "payload",
+                "v": "toggle",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "x": 140,
+        "y": 60,
+        "wires": [
+            [
+                "5717031df07cf85f",
+                "135f6cac6ae22d11"
+            ]
+        ]
+    },
+    {
+        "id": "5717031df07cf85f",
+        "type": "change",
+        "z": "73544b573df69959",
+        "name": "topic=hivemq",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "hivemq",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 320,
+        "y": 40,
+        "wires": [
+            [
+                "70578a7ba3e201f6"
+            ]
+        ]
+    },
+    {
+        "id": "135f6cac6ae22d11",
+        "type": "change",
+        "z": "73544b573df69959",
+        "name": "topic=mosquitto",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "mosquitto",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 320,
+        "y": 80,
+        "wires": [
+            [
+                "3e9275e47c9b211a"
+            ]
+        ]
+    },
+    {
+        "id": "70578a7ba3e201f6",
+        "type": "http request",
+        "z": "73544b573df69959",
+        "name": "GET HiveMQ Flow",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://localhost:1880/flow/1d7610f5cb6c8828",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 540,
+        "y": 40,
+        "wires": [
+            [
+                "8040e6b87deb2bc0"
+            ]
+        ]
+    },
+    {
+        "id": "3e9275e47c9b211a",
+        "type": "http request",
+        "z": "73544b573df69959",
+        "name": "GET Mosquitto Flow",
+        "method": "GET",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://localhost:1880/flow/c474bad29accdf39",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 540,
+        "y": 80,
+        "wires": [
+            [
+                "8040e6b87deb2bc0"
+            ]
+        ]
+    },
+    {
+        "id": "8040e6b87deb2bc0",
+        "type": "join",
+        "z": "73544b573df69959",
+        "name": "Join Flow Info",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "",
+        "joinerType": "str",
+        "accumulate": false,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 720,
+        "y": 60,
+        "wires": [
+            [
+                "5599c601218c9687"
+            ]
+        ]
+    },
+    {
+        "id": "5599c601218c9687",
+        "type": "function",
+        "z": "73544b573df69959",
+        "name": "Toggle Broker Tabs",
+        "func": "const hive = msg.payload?.hivemq;\nconst mosq = msg.payload?.mosquitto;\n\nif (!hive || !mosq) {\n    node.warn(\"Missing flow info from admin API\");\n    return null;\n}\n\nconst enableHive = !!hive.disabled;\nhive.disabled = !enableHive;\nmosq.disabled = enableHive;\n\nconst active = enableHive ? \"HiveMQ\" : \"Mosquitto\";\n\nconst hiveMsg = {\n    topic: \"hivemq\",\n    payload: hive,\n    headers: { \"Content-Type\": \"application/json\" }\n};\n\nconst mosqMsg = {\n    topic: \"mosquitto\",\n    payload: mosq,\n    headers: { \"Content-Type\": \"application/json\" }\n};\n\nconst statusMsg = { payload: active };\n\nreturn [hiveMsg, mosqMsg, statusMsg];\n",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 940,
+        "y": 60,
+        "wires": [
+            [
+                "1a14ea584fc79b09"
+            ],
+            [
+                "d881bd97f055ea99"
+            ],
+            [
+                "0ebc572b77a49d86"
+            ]
+        ]
+    },
+    {
+        "id": "1a14ea584fc79b09",
+        "type": "http request",
+        "z": "73544b573df69959",
+        "name": "PUT HiveMQ Flow",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://localhost:1880/flow/1d7610f5cb6c8828",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1150,
+        "y": 40,
+        "wires": []
+    },
+    {
+        "id": "d881bd97f055ea99",
+        "type": "http request",
+        "z": "73544b573df69959",
+        "name": "PUT Mosquitto Flow",
+        "method": "PUT",
+        "ret": "obj",
+        "paytoqs": "ignore",
+        "url": "http://localhost:1880/flow/c474bad29accdf39",
+        "tls": "",
+        "persist": false,
+        "proxy": "",
+        "authType": "",
+        "senderr": false,
+        "headers": [],
+        "x": 1150,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "0ebc572b77a49d86",
+        "type": "function",
+        "z": "73544b573df69959",
+        "name": "Active Broker",
+        "func": "const name = msg.payload || \"unknown\";\nnode.status({ fill: \"green\", shape: \"dot\", text: `Active: ${name}` });\nreturn null;\n",
+        "outputs": 0,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 170,
+        "y": 110,
+        "wires": []
+    },
+    {
+        "type": "tab",
+        "label": "HiveMQ Inputs",
+        "id": "1d7610f5cb6c8828",
+        "info": "",
+        "disabled": true,
+        "env": []
+    },
+    {
+        "id": "c5f1138ab141294d",
+        "type": "mqtt in",
+        "z": "1d7610f5cb6c8828",
+        "name": "HiveMQ sensors/device/1",
+        "topic": "sensors/device/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "2e344e2c0399884a",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 120,
+        "wires": [
+            [
+                "66b6bb275ec53651"
+            ]
+        ]
+    },
+    {
+        "id": "4a4344a34459fb46",
+        "type": "mqtt in",
+        "z": "1d7610f5cb6c8828",
+        "name": "HiveMQ sensors/device/2",
+        "topic": "sensors/device/2",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "2e344e2c0399884a",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 220,
+        "wires": [
+            [
+                "66b6bb275ec53651"
+            ]
+        ]
+    },
+    {
+        "id": "9f25e52f5ed1f185",
+        "type": "mqtt in",
+        "z": "1d7610f5cb6c8828",
+        "name": "HiveMQ sensors/headset/1",
+        "topic": "sensors/headset/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "2e344e2c0399884a",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 320,
+        "wires": [
+            [
+                "66b6bb275ec53651"
+            ]
+        ]
+    },
+    {
+        "id": "554c1696799216e6",
+        "type": "comment",
+        "z": "1d7610f5cb6c8828",
+        "name": "Left Glove",
+        "info": "",
+        "x": 140,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "7a973f4242067512",
+        "type": "comment",
+        "z": "1d7610f5cb6c8828",
+        "name": "Right Glove",
+        "info": "Headset data\n(i) Worn\n- Is the device being taken on or off?\n\n(ii) Bat\n- Headset battery level\n\n(iii) Mic\n- Mic Peak-to-peak value\n\nGloves data (R - Right; L - Left)\n(i) L Bat\n- Left battery level\n\n(ii) R Bat\n- Right battery level\n\n(iii) BPM\n- Average BPM of both L and R fingers\n\n(iv) A\n- BPM Alerts, if BPM reaches > 120 or < 60 for 10 consecutive readings \n\n\n",
+        "x": 150,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "e3d1a3e81aa1c415",
+        "type": "comment",
+        "z": "1d7610f5cb6c8828",
+        "name": "Headset",
+        "info": "Headset data\n(i) Worn\n- Is the device being taken on or off?\n\n(ii) Bat\n- Headset battery level\n\n(iii) Mic\n- Mic Peak-to-peak value\n\nGloves data (R - Right; L - Left)\n(i) L Bat\n- Left battery level\n\n(ii) R Bat\n- Right battery level\n\n(iii) BPM\n- Average BPM of both L and R fingers\n\n(iv) A\n- BPM Alerts, if BPM reaches > 120 or < 60 for 10 consecutive readings \n\n\n",
+        "x": 140,
+        "y": 280,
+        "wires": []
+    },
+    {
+        "id": "66b6bb275ec53651",
+        "type": "link out",
+        "z": "1d7610f5cb6c8828",
+        "name": "to Processing",
+        "mode": "link",
+        "links": [
+            "9cd5316e770cfffc"
+        ],
+        "x": 360,
+        "y": 200
+    },
+    {
+        "type": "tab",
+        "label": "Mosquitto Inputs",
+        "id": "c474bad29accdf39",
+        "info": "",
+        "disabled": false,
+        "env": []
+    },
+    {
+        "id": "c8e6ec5fe06ddcca",
+        "type": "mqtt in",
+        "z": "c474bad29accdf39",
+        "name": "Mosquitto sensors/device/1",
+        "topic": "sensors/device/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "089ee3ff4d4a85c6"
+            ]
+        ]
+    },
+    {
+        "id": "7389c330fe12f322",
+        "type": "mqtt in",
+        "z": "c474bad29accdf39",
+        "name": "Mosquitto sensors/device/2",
+        "topic": "sensors/device/2",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "089ee3ff4d4a85c6"
+            ]
+        ]
+    },
+    {
+        "id": "b9ea3c15466bf51a",
+        "type": "mqtt in",
+        "z": "c474bad29accdf39",
+        "name": "Mosquitto sensors/headset/1",
+        "topic": "sensors/headset/1",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 180,
+        "y": 360,
+        "wires": [
+            [
+                "089ee3ff4d4a85c6"
+            ]
+        ]
+    },
+    {
+        "id": "089ee3ff4d4a85c6",
+        "type": "link out",
+        "z": "c474bad29accdf39",
+        "name": "to Processing",
+        "mode": "link",
+        "links": [
+            "9cd5316e770cfffc"
+        ],
+        "x": 360,
+        "y": 200
+    }
+]

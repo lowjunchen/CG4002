@@ -1,0 +1,4 @@
+/data/
+/overlay/
+common_commands.txt
+/pynq_app/*/__pycache__/
