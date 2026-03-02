@@ -136,6 +136,8 @@ void configureTLS() {
   espClient.setCACert(CA_CERT);
   espClient.setCertificate(CLIENT_CERT);
   espClient.setPrivateKey(CLIENT_KEY);
+}
+
 void setRGB(int r, int g, int b) {
   ledcWrite(CH_RED,   r);
   ledcWrite(CH_GREEN, g);
