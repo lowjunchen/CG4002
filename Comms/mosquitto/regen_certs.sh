@@ -16,13 +16,17 @@ echo "Regenerating server cert..."
 rm -f server.key server.csr server.crt
 openssl genrsa -out server.key 2048
 openssl req -new -key server.key -subj "/CN=mosquitto" -out server.csr
-cat > server.ext <<'EOF'
+if [[ -f server.ext ]]; then
+  echo "Using existing server.ext (no overwrite)."
+else
+  cat > server.ext <<'EOF'
 authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth
 subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:mosquitto,DNS:host.docker.internal
 EOF
+fi
 openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
   -out server.crt -days 825 -sha256 -extfile server.ext
 

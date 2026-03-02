@@ -15,6 +15,11 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parents[2]
     cert_dir = repo_root / "Comms" / "mosquitto" / "certs"
     hardware_header = repo_root / "Hardware" / "certs.h"
+    per_device_headers = {
+        "left_glove": repo_root / "Hardware" / "Left_Glove" / "certs.h",
+        "right_glove": repo_root / "Hardware" / "Right_Glove" / "certs.h",
+        "headset": repo_root / "Hardware" / "Headset" / "certs.h",
+    }
 
     ca = read_file(cert_dir / "ca.crt")
 
@@ -63,6 +68,29 @@ def main() -> int:
 
     hardware_header.write_text("\n".join(lines))
     print(f"Wrote {hardware_header}")
+
+    # Also write per-device headers for Arduino's local include behavior.
+    for device, header_path in per_device_headers.items():
+        cert = read_file(cert_dir / "clients" / f"{device}.crt")
+        key = read_file(cert_dir / "clients" / f"{device}.key")
+        per_lines = [
+            "#pragma once",
+            "",
+            "// Auto-generated from Comms/mosquitto/certs. Do not edit by hand.",
+            "static const char CA_CERT[] = R\"EOF(",
+            ca.rstrip("\n"),
+            ")EOF\";",
+            "",
+            "static const char CLIENT_CERT[] = R\"EOF(",
+            cert.rstrip("\n"),
+            ")EOF\";",
+            "static const char CLIENT_KEY[] = R\"EOF(",
+            key.rstrip("\n"),
+            ")EOF\";",
+            "",
+        ]
+        header_path.write_text("\n".join(per_lines))
+        print(f"Wrote {header_path}")
     return 0
 
 
