@@ -51,3 +51,10 @@ docker exec mosquitto sh -c 'mosquitto_sub -h localhost -p 8883 --cafile /mosqui
 **Notes**
 - Node-RED is optional. If you want visualization/processing, enable the Mosquitto inputs tab in Node-RED.
 - All hardware connects directly to the broker. Node-RED is not a required hop.
+
+---
+
+**Ultra96 SSH Tunnel (when MQTT is blocked)**
+If the Ultra96 cannot reach the broker directly, use the SSH tunnel script:
+- Docs: `Comms/ultra96/README.md`
+- Script: `Comms/ultra96/ssh_tunnel.sh`
