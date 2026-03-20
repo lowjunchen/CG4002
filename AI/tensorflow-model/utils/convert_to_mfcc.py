@@ -2,16 +2,16 @@ import wave
 import numpy as np
 import math
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 8000
 WINDOW_SECONDS = 1.0
 WINDOW_SAMPLES = int(SAMPLE_RATE * WINDOW_SECONDS)
-FRAME_LENGTH = 400
-FRAME_STEP = 160
-FFT_SIZE = 512
+FRAME_LENGTH = 200
+FRAME_STEP = 80
+FFT_SIZE = 256
 NUM_MEL_FILTERS = 40
 NUM_MFCC = 13
 LOW_FREQ = 20
-HIGH_FREQ = 4000
+HIGH_FREQ = 3800
 PRE_EMPHASIS = 0.97
 
 def load_wav(filename):
@@ -45,8 +45,8 @@ def pre_emphasis(signal):
 def framing(signal):
     """
     Create frames from the input signal by slicing it into overlapping segments.
-    Assuming a sample rate of 16kHz, a frame length of 25ms (400 samples) and a 
-    frame step of 10ms (160 samples).
+    Assuming a sample rate of 8kHz, a frame length of 25ms (200 samples) and a 
+    frame step of 10ms (80 samples).
     
     :param signal: input audio signal
     :return: 2D array of frames (num_frames x frame_length)
@@ -158,7 +158,7 @@ def compute_mfcc_wav(filename):
     signal = load_wav(filename)
     audio_np = signal.astype(np.float32) / 32768.0
 
-    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    #Pad the sample audio to 1 second (8000 samples) if it's shorter, or truncate if it's longer
     if audio_np.shape[0] < WINDOW_SAMPLES:
         audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
     else:
@@ -190,7 +190,7 @@ def compute_mfcc_np(signal):
     """
     audio_np = signal.astype(np.float32) / 32768.0
 
-    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    #Pad the sample audio to 1 second (8000 samples) if it's shorter, or truncate if it's longer
     if audio_np.shape[0] < WINDOW_SAMPLES:
         audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
     else:
@@ -212,6 +212,29 @@ def compute_mfcc_np(signal):
     mfcc = np.dot(mel_energy, dct.T)
 
     return mfcc
+
+def chunk_wav_to_mfccs(filename, overlap=0.5):
+    """
+    Load a .wav file of arbitrary length, chunk it into 1-second segments
+    with the given overlap factor, and compute MFCCs for each segment.
+
+    :param filename: path to the .wav file (must be mono, 8kHz)
+    :param overlap: overlap fraction between consecutive segments (default 0.5)
+    :return: list of 2D MFCC arrays, each (num_frames x NUM_MFCC)
+    """
+    signal = load_wav(filename)
+    step = int(WINDOW_SAMPLES * (1 - overlap))
+
+    segments = []
+    start = 0
+    while start < len(signal):
+        segment = signal[start:start + WINDOW_SAMPLES]
+        segments.append(segment)
+        start += step
+
+    mfccs = [compute_mfcc_np(seg) for seg in segments]
+    return mfccs
+
 
 if __name__ == "__main__":
     mfcc = compute_mfcc_wav("data/wav_samples/down.wav")
