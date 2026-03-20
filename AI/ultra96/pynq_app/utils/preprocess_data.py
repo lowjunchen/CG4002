@@ -181,3 +181,35 @@ def compute_mfcc_wav(filename):
     mfcc = np.dot(mel_energy, dct.T)
 
     return mfcc
+
+def compute_mfcc_np(signal):
+    """
+    Compute MFCC features from a np array.
+
+    :param signal: input audio signal as a numpy array
+    :return: 2D array of MFCC features (num_frames x NUM_MFCC)
+    """
+    audio_np = signal.astype(np.float32) / 32768.0
+
+    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    if audio_np.shape[0] < WINDOW_SAMPLES:
+        audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
+    else:
+        audio_np = audio_np[:WINDOW_SAMPLES]
+
+    emphasised_signal = pre_emphasis(audio_np)
+
+    frames = framing(emphasised_signal)
+    frames = windowing(frames)
+
+    power = power_spectrum(frames)
+
+    mel_filters = mel_filterbank()
+    mel_energy = np.dot(power, mel_filters.T)
+
+    mel_energy = np.log(mel_energy + 1e-10)
+
+    dct = dct_matrix()
+    mfcc = np.dot(mel_energy, dct.T)
+
+    return mfcc
