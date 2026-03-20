@@ -2,16 +2,16 @@ import wave
 import numpy as np
 import math
 
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 8000
 WINDOW_SECONDS = 1.0
 WINDOW_SAMPLES = int(SAMPLE_RATE * WINDOW_SECONDS)
-FRAME_LENGTH = 400
-FRAME_STEP = 160
-FFT_SIZE = 512
+FRAME_LENGTH = 200
+FRAME_STEP = 80
+FFT_SIZE = 256
 NUM_MEL_FILTERS = 40
 NUM_MFCC = 13
 LOW_FREQ = 20
-HIGH_FREQ = 4000
+HIGH_FREQ = 3800
 PRE_EMPHASIS = 0.97
 
 def load_wav(filename):
@@ -158,7 +158,7 @@ def compute_mfcc_wav(filename):
     signal = load_wav(filename)
     audio_np = signal.astype(np.float32) / 32768.0
 
-    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    #Pad the sample audio to 1 second (8000 samples) if it's shorter, or truncate if it's longer
     if audio_np.shape[0] < WINDOW_SAMPLES:
         audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
     else:
@@ -190,7 +190,7 @@ def compute_mfcc_np(signal):
     """
     audio_np = signal.astype(np.float32) / 32768.0
 
-    #Pad the sample audio to 1 second (16000 samples) if it's shorter, or truncate if it's longer
+    #Pad the sample audio to 1 second (8000 samples) if it's shorter, or truncate if it's longer
     if audio_np.shape[0] < WINDOW_SAMPLES:
         audio_np = np.pad(audio_np, (0, WINDOW_SAMPLES - audio_np.shape[0]))
     else:
