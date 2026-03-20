@@ -213,3 +213,24 @@ def compute_mfcc_np(signal):
     mfcc = np.dot(mel_energy, dct.T)
 
     return mfcc
+
+def load_wav_windows(filename, overlap=0.5):
+    """
+    Load a .wav file, chunk it into 1-second windows of raw samples.
+    If the file is <= 1 second, returns a single window.
+
+    :param filename: path to the .wav file (mono, 8kHz)
+    :param overlap: overlap fraction between consecutive windows (default 0.5)
+    :return: list of 1D numpy arrays (raw int16 samples)
+    """
+    signal = load_wav(filename)
+    step = int(WINDOW_SAMPLES * (1 - overlap))
+
+    windows = []
+    start = 0
+    while start < len(signal):
+        window = signal[start:start + WINDOW_SAMPLES]
+        windows.append(window)
+        start += step
+
+    return windows
