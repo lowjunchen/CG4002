@@ -7,7 +7,6 @@ def train_kws_model(train_ds, test_ds, num_classes=7, epochs=10, lr=1e-3):
     #Get input shape and number of classes from the dataset
     for mfcc, label in train_ds.take(1):
         input_shape = mfcc.shape[1:] #Exclude batch dimension
-        num_classes = len(tf.unique(label)[0])
         print("Input shape:", input_shape)
         print("Number of classes:", num_classes)
 

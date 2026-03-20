@@ -54,7 +54,7 @@ def extract_mfcc_shapes():
     """
     Generate dummy audio data and compute MFCCs to verify the expected shape.
     """
-    dummy = (np.random.randn(16000) * 1000).astype(np.int16)  # Use dummy audio data to test MFCC extraction
+    dummy = (np.random.randn(8000) * 1000).astype(np.int16)  # Use dummy audio data to test MFCC extraction
     mfcc = compute_mfcc_np(dummy)
 
     print("MFCC shape:", mfcc.shape)  # expect (98, 13)

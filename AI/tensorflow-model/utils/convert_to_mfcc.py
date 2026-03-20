@@ -45,8 +45,8 @@ def pre_emphasis(signal):
 def framing(signal):
     """
     Create frames from the input signal by slicing it into overlapping segments.
-    Assuming a sample rate of 16kHz, a frame length of 25ms (400 samples) and a 
-    frame step of 10ms (160 samples).
+    Assuming a sample rate of 8kHz, a frame length of 25ms (200 samples) and a 
+    frame step of 10ms (80 samples).
     
     :param signal: input audio signal
     :return: 2D array of frames (num_frames x frame_length)
@@ -212,6 +212,29 @@ def compute_mfcc_np(signal):
     mfcc = np.dot(mel_energy, dct.T)
 
     return mfcc
+
+def chunk_wav_to_mfccs(filename, overlap=0.5):
+    """
+    Load a .wav file of arbitrary length, chunk it into 1-second segments
+    with the given overlap factor, and compute MFCCs for each segment.
+
+    :param filename: path to the .wav file (must be mono, 8kHz)
+    :param overlap: overlap fraction between consecutive segments (default 0.5)
+    :return: list of 2D MFCC arrays, each (num_frames x NUM_MFCC)
+    """
+    signal = load_wav(filename)
+    step = int(WINDOW_SAMPLES * (1 - overlap))
+
+    segments = []
+    start = 0
+    while start < len(signal):
+        segment = signal[start:start + WINDOW_SAMPLES]
+        segments.append(segment)
+        start += step
+
+    mfccs = [compute_mfcc_np(seg) for seg in segments]
+    return mfccs
+
 
 if __name__ == "__main__":
     mfcc = compute_mfcc_wav("data/wav_samples/down.wav")

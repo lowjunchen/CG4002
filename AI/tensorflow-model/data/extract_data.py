@@ -5,8 +5,11 @@ import tensorflow as tf
 import tensorflow_datasets as tfds
 import os 
 import numpy as np
+from scipy.signal import decimate
 
-SAMPLE_RATE = 16000
+ORIGINAL_SAMPLE_RATE = 16000
+SAMPLE_RATE = 8000
+DOWNSAMPLE_FACTOR = ORIGINAL_SAMPLE_RATE // SAMPLE_RATE
 NUM_FRAMES = 98 #Assumeing 1 second audio clips with 25ms frame length and 10ms frame step
 NUM_MFCC = 13
 
@@ -151,6 +154,7 @@ def fetch_speech_data_in_mfcc(
     
     def audio_to_mfcc(audio_int16):
         def _np_mfcc(audio_np):
+            audio_np = decimate(audio_np, DOWNSAMPLE_FACTOR).astype(audio_np.dtype)
             mfcc = compute_mfcc_np(audio_np)
             return mfcc.astype(np.float32)
 
@@ -235,7 +239,7 @@ def fetch_speech_data_in_wav(
 
         if label_name in target_commands and not got[label_name]:
             path = os.path.join(output_dir, f"{label_name}.wav")
-            write_wav_int16(path, audio, SAMPLE_RATE)
+            write_wav_int16(path, audio, ORIGINAL_SAMPLE_RATE)
             got[label_name] = True
             saved_paths[label_name] = path
 
