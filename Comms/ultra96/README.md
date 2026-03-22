@@ -71,8 +71,8 @@ python3 Comms/ultra96/run_dual_clients.py \
   --ca Comms/mosquitto/certs/ca.crt \
   --cert Comms/mosquitto/certs/clients/simulator.crt \
   --key Comms/mosquitto/certs/clients/simulator.key \
-  --sub-topic esp32/voice_data \
-  --pub-topic ultra96/voice_result
+  --sub-topic audio/headset/1 \
+  --pub-topic ai/ultra96/result
 ```
 
 Example on the same Wi-Fi without the tunnel:
