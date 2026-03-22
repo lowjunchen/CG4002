@@ -10,5 +10,8 @@ BYTES_PER_BEAT = 4
 #MFCC input
 IN_LEN = 1274
 
-# Logits output
+#Logits output
 OUT_LEN = 7
+
+#Cert name for MQTT
+CERT_NAME = ""

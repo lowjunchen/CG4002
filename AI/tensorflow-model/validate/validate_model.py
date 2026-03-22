@@ -5,11 +5,41 @@ import numpy as np
 import tensorflow as tf
 
 from data.extract_data import fetch_speech_data_in_mfcc
+from utils.convert_to_mfcc import chunk_wav_to_mfccs
 
 MODEL_PATH = 'cnn_kws_model'
 BATCH_SIZE = 64
 
 TARGET_COMMANDS = ['go', 'on', 'stop', 'up', 'down', '_silence_', '_unknown_']
+
+
+def evaluate_wav(wav_path, model_path=MODEL_PATH, overlap=0.5):
+    """
+    Evaluate a single .wav file by chunking it into 1-second segments
+    with the given overlap and running inference on each segment.
+
+    :param wav_path: path to the .wav file (mono, 8kHz)
+    :param model_path: path to the saved Keras model
+    :param overlap: overlap fraction between segments (default 0.5)
+    :return: list of (segment_index, predicted_label, confidence) tuples
+    """
+    model = tf.keras.models.load_model(model_path)
+    mfccs = chunk_wav_to_mfccs(wav_path, overlap=overlap)
+
+    results = []
+    for i, mfcc in enumerate(mfccs):
+        x = np.expand_dims(mfcc, axis=-1)  # (98, 13, 1)
+        x = np.expand_dims(x, axis=0)      # (1, 98, 13, 1)
+
+        logits = model(x, training=False)
+        probs = tf.nn.softmax(logits, axis=1).numpy()[0]
+        pred_idx = int(np.argmax(probs))
+        confidence = float(probs[pred_idx])
+
+        results.append((i, TARGET_COMMANDS[pred_idx], confidence))
+        print(f'Segment {i}: {TARGET_COMMANDS[pred_idx]} ({confidence:.2%})')
+
+    return results
 
 
 def evaluate_model(model_path = MODEL_PATH):
@@ -52,12 +82,12 @@ def print_confusion_matrix(cm, class_names):
 
 
 def main():
-    accuracy, cm = evaluate_model()
+    #accuracy, cm = evaluate_model()
 
-    print(f'Test accuracy: {accuracy * 100.0:.2f}%')
-    print('Confusion matrix (rows=true, cols=pred):')
-    print_confusion_matrix(cm, TARGET_COMMANDS)
-
+    #print(f'Test accuracy: {accuracy * 100.0:.2f}%')
+    #print('Confusion matrix (rows=true, cols=pred):')
+    #print_confusion_matrix(cm, TARGET_COMMANDS)
+    evaluate_wav(r"E:\AI-for-CG4002\AI\tensorflow-model\data\wav_samples\audio_unknown.wav")
 
 if __name__ == '__main__':
     main()
