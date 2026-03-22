@@ -1,1 +1,7 @@
-Comms/mosquitto/certs/
+# Comms/mosquitto/certs/
+Comms/node-red-data/flows_cred.json
+node-red-data/.config.nodes.json
+node-red-data/.config.runtime.json
+node-red-data/.config.runtime.json.backup
+node-red-data/package.json
+node-red-data/settings.js

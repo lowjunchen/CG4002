@@ -2,8 +2,11 @@
 #include <Wire.h>
 #include "Adafruit_MAX1704X.h"
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 
+#define DEVICE_LEFT_GLOVE
+#include "certs.h"
 // -------- RGB LED --------
 #define PIN_RED    25
 #define PIN_GREEN  26
@@ -25,14 +28,14 @@ const unsigned long BLINK_INTERVAL = 500; // ms
 #define DEVICE_ID "1"
 
 // -------- WiFi --------
-const char* ssid = "LOW's S24+"; // My phone will always be with me. Network (should) be available.
-const char* password = "uuykg2ags4uyncf";
+const char* ssid = "XH001";  // My phone will always be with me. Network (should) be available.
+const char* password = "zxd19901120";
 
 // -------- MQTT --------
-const char* mqttServer = "broker.hivemq.com"; // No longer need to set IP Address
-const int mqttPort = 1883;
+const char* mqttServer = "172.20.10.2"; // TODO: set to your laptop LAN IP
+const int mqttPort = 8883;
 
-WiFiClient espClient;
+WiFiClientSecure espClient;
 PubSubClient client(espClient);
 
 // -------- MAX17048 --------
@@ -95,8 +98,17 @@ int LastBPM = 60;                      // last processed BPM for alert
 
 
 // -------- Timing --------
-unsigned long lastSend = 0;
+#define MAX_SPEED_DEMO 1
+#if MAX_SPEED_DEMO
+const unsigned long SEND_INTERVAL = 20;   // 50 Hz publish for speed demo
+const unsigned long LOG_INTERVAL = 1000;  // 1 Hz logging
+#else
 const unsigned long SEND_INTERVAL = 500;
+const unsigned long LOG_INTERVAL = 500;
+#endif
+
+unsigned long lastSend = 0;
+unsigned long lastLog = 0;
 
 // -------- Functions --------
 
@@ -109,6 +121,7 @@ void connectWiFi() {
     Serial.print(".");
   }
   Serial.println("\nWiFi connected");
+  WiFi.setSleep(false);
 }
 
 void connectMQTT() {
@@ -127,6 +140,12 @@ void connectMQTT() {
       delay(2000);
     }
   }
+}
+
+void configureTLS() {
+  espClient.setCACert(CA_CERT);
+  espClient.setCertificate(CLIENT_CERT);
+  espClient.setPrivateKey(CLIENT_KEY);
 }
 
 void setRGB(int r, int g, int b) {
@@ -154,6 +173,10 @@ ledcAttachPin(PIN_BLUE,  CH_BLUE);
   analogReadResolution(12);
 
   connectWiFi();
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  time_t now = 0;
+  while (now < 1700000000) { delay(500); time(&now); }
+  configureTLS();
   connectMQTT();
 
   // MPU6050 init
@@ -386,18 +409,18 @@ if (batteryPercent > 0) {
     String topic = "sensors/device/" + String(DEVICE_ID);
     client.publish(topic.c_str(), payload.c_str());
 
-    // ----- Serial print -----
-    Serial.print("Battery: "); Serial.print(cellVoltage); Serial.print("V, ");
-    Serial.print(batteryPercent); Serial.print("%, ");
+    if (now - lastLog > LOG_INTERVAL) {
+      lastLog = now;
+      Serial.print("Battery: "); Serial.print(cellVoltage); Serial.print("V, ");
+      Serial.print(batteryPercent); Serial.print("%, ");
 
-    Serial.print("ACC Delta: "); Serial.print(accDelta);
-    Serial.print(", GYRO Delta: "); Serial.print(gyroDelta);
-    // Serial.print(", Tier: "); Serial.println(TierOutput);
-    Serial.print(", Smoothed Tier (last 10): ");
-    Serial.println(smoothedTier);  // 0: Frail 1: Normal 2: NIL
+      Serial.print("ACC Delta: "); Serial.print(accDelta);
+      Serial.print(", GYRO Delta: "); Serial.print(gyroDelta);
+      Serial.print(", Smoothed Tier: ");
+      Serial.println(smoothedTier);
 
-    Serial.print("BPM: "); Serial.print(BPM);
-    Serial.print(", BPMAlert: "); Serial.println(BPMAlert ? "ALERT" : "OK");
-    Serial.println("------------------------------------------------");
+      Serial.print("BPM: "); Serial.print(BPM);
+      Serial.print(", BPMAlert: "); Serial.println(BPMAlert ? "ALERT" : "OK");
+    }
   }
 }
