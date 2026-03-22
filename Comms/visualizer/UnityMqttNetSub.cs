@@ -11,7 +11,7 @@ using MQTTnet.Client;
 public class UnityMqttNetSub : MonoBehaviour
 {
     [Header("Broker")]
-    public string host = "172.20.10.2";
+    public string host = "Yeos-MacBook-Pro.local";
     public int port = 8883;
 
     [Header("Topics")]
