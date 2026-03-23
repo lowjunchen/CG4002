@@ -15,6 +15,12 @@ class AudioBuffer:
     def append(self, chunk):
         self.buffer = np.append(self.buffer, chunk)
 
+    def sample_count(self):
+        return int(self.buffer.size)
+
+    def has_full_window(self):
+        return self.buffer.size >= self.window_size
+
     def get_windows(self):
         windows = []
         offset = 0
