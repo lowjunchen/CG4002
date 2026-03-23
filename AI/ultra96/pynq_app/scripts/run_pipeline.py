@@ -41,7 +41,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mqtt-client-id", default="ultra96")
     parser.add_argument("--mqtt-username", default="")
     parser.add_argument("--mqtt-password", default="")
-    parser.add_argument("--mqtt-sub-topic", default="audio/headset/1")
+    parser.add_argument("--mqtt-sub-topic", default="audio/headset/3")
     parser.add_argument("--mqtt-pub-topic", default="ai/ultra96/result")
     parser.add_argument("--mqtt-tls-insecure", action="store_true")
     parser.add_argument("--min-samples", type=int, default=WINDOW_SIZE)
