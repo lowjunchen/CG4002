@@ -44,8 +44,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--mqtt-sub-topic", default="audio/headset/1")
     parser.add_argument("--mqtt-pub-topic", default="ai/ultra96/result")
     parser.add_argument("--mqtt-tls-insecure", action="store_true")
-    parser.add_argument("--collector-timeout-sec", type=float, default=2.0)
-    parser.add_argument("--collector-max-packets", type=int, default=3)
+    parser.add_argument("--min-samples", type=int, default=WINDOW_SIZE)
     parser.add_argument("--pre-profile", choices=["performance", "powersave"], default="performance")
     parser.add_argument("--post-profile", choices=["performance", "powersave"], default="powersave")
     return parser
@@ -78,10 +77,7 @@ def main(args: argparse.Namespace) -> None:
 
     try:
         while True:
-            if collector.is_ready(
-                timeout_sec=args.collector_timeout_sec,
-                max_packets=args.collector_max_packets,
-            ):
+            if collector.is_ready(min_samples=args.min_samples):
                 windows = audio_buf.get_windows()
 
                 if len(windows) == 0:
