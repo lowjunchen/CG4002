@@ -13,7 +13,8 @@ class VoiceDataCollector:
         self.pkt_counter = 0
         self.start_time = 0
 
-    def voice_data_handler(self, payload):
+    def voice_data_handler(self, client_or_payload, msg=None):
+        payload = client_or_payload if msg is None else msg.payload
         if self.pkt_counter == 0:
             self.start_time = time.time()
 

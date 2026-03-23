@@ -50,6 +50,16 @@ openssl req -new -key clients/nodered.key -subj "/CN=nodered" -out clients/noder
 openssl x509 -req -in clients/nodered.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
   -out clients/nodered.crt -days 825 -sha256 -extfile client.ext
 
+# laptop publisher (M2Mqtt)
+PFX_PASS="${PFX_PASS:-capstone}"
+openssl genrsa -out clients/laptop_pub.key 2048
+openssl req -new -key clients/laptop_pub.key -subj "/CN=laptop_pub" -out clients/laptop_pub.csr
+openssl x509 -req -in clients/laptop_pub.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/laptop_pub.crt -days 825 -sha256 -extfile client.ext
+openssl pkcs12 -export -out clients/laptop_pub.pfx \
+  -inkey clients/laptop_pub.key -in clients/laptop_pub.crt -certfile ca.crt \
+  -passout pass:"${PFX_PASS}"
+
 # left_glove
 openssl genrsa -out clients/left_glove.key 2048
 openssl req -new -key clients/left_glove.key -subj "/CN=left_glove" -out clients/left_glove.csr

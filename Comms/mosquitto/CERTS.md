@@ -61,6 +61,8 @@ python3 Comms/simulator/mqtt_simulator.py \\
 
 If you connect by IP that is not in the server cert SANs, use `--insecure` or reissue `server.crt` with the IP in `server.ext`.
 
+If you connect by a stable hostname that is already in the server cert SANs, the broker IP can change without reissuing the cert. Only the hostname presented to TLS must stay the same.
+
 **Node-RED Usage (later step)**
 When you update Node-RED, configure the broker to:
 - Host: `localhost` (or your broker IP)
@@ -69,6 +71,19 @@ When you update Node-RED, configure the broker to:
 - CA cert: `Comms/mosquitto/certs/ca.crt`
 - Client cert: `Comms/mosquitto/certs/clients/nodered.crt`
 - Client key: `Comms/mosquitto/certs/clients/nodered.key`
+
+**Reissuing Only the Server Certificate**
+Use this when the broker identity changes but the CA stays the same.
+
+- If clients connect by a stable hostname already listed in `server.ext`, a Wi-Fi IP change does not require any cert update.
+- If clients connect by a new IP or a new hostname, edit `Comms/mosquitto/certs/server.ext` and run:
+
+```bash
+Comms/mosquitto/reissue_server_cert.sh
+```
+
+- This reuses the existing `ca.crt` and leaves all client certs unchanged.
+- Because the CA and device client certs stay the same, `Hardware/certs.h` does not need to be regenerated or reflashed.
 
 **Regenerating Certs**
 If you regenerate the CA, you must reissue all server and client certificates and redistribute the new `ca.crt`.

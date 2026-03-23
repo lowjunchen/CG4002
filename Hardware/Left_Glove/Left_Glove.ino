@@ -32,7 +32,7 @@ const char* ssid = "XH001";  // My phone will always be with me. Network (should
 const char* password = "zxd19901120";
 
 // -------- MQTT --------
-const char* mqttServer = "172.20.10.2"; // TODO: set to your laptop LAN IP
+const char* mqttServer = "Yeos-MacBook-Pro.local"; // Prefer a stable hostname covered by server.ext
 const int mqttPort = 8883;
 
 WiFiClientSecure espClient;
@@ -148,23 +148,31 @@ void configureTLS() {
   espClient.setPrivateKey(CLIENT_KEY);
 }
 
+// void setRGB(int r, int g, int b) {
+//   ledcWrite(CH_RED,   r);
+//   ledcWrite(CH_GREEN, g);
+//   ledcWrite(CH_BLUE,  b);
+// }
 void setRGB(int r, int g, int b) {
-  ledcWrite(CH_RED,   r);
-  ledcWrite(CH_GREEN, g);
-  ledcWrite(CH_BLUE,  b);
+  ledcWriteChannel(CH_RED,   r);
+  ledcWriteChannel(CH_GREEN, g);
+  ledcWriteChannel(CH_BLUE,  b);
 }
 
 // -------- Setup --------
 
 void setup() {
   // RGB LED init (POWER ON immediately)
-ledcSetup(CH_RED,   PWM_FREQ, PWM_RES);
-ledcSetup(CH_GREEN, PWM_FREQ, PWM_RES);
-ledcSetup(CH_BLUE,  PWM_FREQ, PWM_RES);
+// ledcSetup(CH_RED,   PWM_FREQ, PWM_RES);
+// ledcSetup(CH_GREEN, PWM_FREQ, PWM_RES);
+// ledcSetup(CH_BLUE,  PWM_FREQ, PWM_RES);
+ledcAttachChannel(PIN_RED,   PWM_FREQ, PWM_RES, CH_RED);
+ledcAttachChannel(PIN_GREEN, PWM_FREQ, PWM_RES, CH_GREEN);
+ledcAttachChannel(PIN_BLUE,  PWM_FREQ, PWM_RES, CH_BLUE);
 
-ledcAttachPin(PIN_RED,   CH_RED);
-ledcAttachPin(PIN_GREEN, CH_GREEN);
-ledcAttachPin(PIN_BLUE,  CH_BLUE);
+// ledcAttachPin(PIN_RED,   CH_RED);
+// ledcAttachPin(PIN_GREEN, CH_GREEN);
+// ledcAttachPin(PIN_BLUE,  CH_BLUE);
 
   Serial.begin(115200);
   Wire.begin(21, 22);

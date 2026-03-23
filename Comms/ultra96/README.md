@@ -52,3 +52,35 @@ Install `autossh` on Ultra96 if available:
 sudo apt-get install -y autossh
 ```
 The script will use it automatically.
+
+**5. Install Python dependency on Ultra96**
+```bash
+python3 -m pip install -r Comms/ultra96/requirements.txt
+```
+
+**6. Python MQTT client on Ultra96**
+For a direct or tunnelled mTLS MQTT client on the Ultra96, use:
+- `Comms/ultra96/mqtt_client.py`: reusable mTLS client wrapper
+- `Comms/ultra96/run_dual_clients.py`: example with separate subscribe and publish clients
+
+Example with the reverse tunnel from this folder:
+```bash
+python3 Comms/ultra96/run_dual_clients.py \
+  --host localhost \
+  --port 18883 \
+  --ca Comms/mosquitto/certs/ca.crt \
+  --cert Comms/mosquitto/certs/clients/simulator.crt \
+  --key Comms/mosquitto/certs/clients/simulator.key \
+  --sub-topic audio/headset/1 \
+  --pub-topic ai/ultra96/result
+```
+
+Example on the same Wi-Fi without the tunnel:
+```bash
+python3 Comms/ultra96/run_dual_clients.py \
+  --host Yeos-MacBook-Pro.local \
+  --port 8883 \
+  --ca Comms/mosquitto/certs/ca.crt \
+  --cert Comms/mosquitto/certs/clients/simulator.crt \
+  --key Comms/mosquitto/certs/clients/simulator.key
+```
