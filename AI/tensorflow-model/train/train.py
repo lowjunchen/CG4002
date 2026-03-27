@@ -29,8 +29,14 @@ def train_kws_model(train_ds, num_classes=7, epochs=80, lr=1e-3):
                                              factor=0.5,
                                              patience=5,
                                              min_lr=1e-6,
-                                             verbose=1)
+                                             verbose=1),
+        tf.keras.callbacks.EarlyStopping(monitor='acc',
+                                         patience=8,
+                                         restore_best_weights=True,
+                                         verbose=1)
     ]
+
+    train_ds = train_ds.shuffle(buffer_size=256, reshuffle_each_iteration=True)
 
     history = model.fit(
         train_ds,
@@ -41,7 +47,7 @@ def train_kws_model(train_ds, num_classes=7, epochs=80, lr=1e-3):
     return model, history
 
 if __name__ == "__main__":
-    train_ds = load_custom_dataset(augment=False)
+    train_ds = load_custom_dataset(batch_size=32, augment=True)
     model, history = train_kws_model(train_ds)
     model.save("cnn_kws_model")
     print("Training complete. Model saved to cnn_kws_model/")

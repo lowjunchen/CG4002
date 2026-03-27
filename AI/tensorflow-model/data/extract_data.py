@@ -15,12 +15,12 @@ NUM_FRAMES = 98 #Assumeing 1 second audio clips with 25ms frame length and 10ms 
 NUM_MFCC = 13
 
 # Custom training data label mapping
-CUSTOM_LABELS = {'start': 0, 'end': 1, 'go': 2, 'stop': 3, 'faster': 4, 'slower': 5, 'unknown': 6}
-SAMPLES_PER_CLASS = 150
+CUSTOM_LABELS = {'start': 0, 'end': 1, 'play': 2, 'pause': 3, 'faster': 4, 'slower': 5, 'unknown': 6}
+SAMPLES_PER_CLASS = {'start': 150, 'end': 150, 'play': 150, 'pause': 150, 'faster': 150, 'slower': 150, 'unknown': 100}
 
 # Labels that can be padded from Google's speech_commands dataset.
 # Maps local label name -> speech_commands label name.
-TFDS_PADDING_LABELS = {'go': 'go', 'stop': 'stop', 'unknown': '_unknown_'}
+TFDS_PADDING_LABELS = {'unknown': '_unknown_'}
 
 
 def inspect_speech_command_data(dataset_name='speech_commands', split='test', data_dir=None):
@@ -113,8 +113,8 @@ def fetch_speech_data_in_mfcc(
     :return: Tuple of (train_dataset, test_dataset) where each dataset yields (mfcc, label) pairs
     """
 
-    #Training data will now make use of these commands: "go", "on", "stop", "up", "down", "_silence_" and "_unknown_"
-    target_commands = ['go', 'on', 'stop', 'up', 'down', '_silence_', '_unknown_']
+    #Training data will now make use of these commands: "start", "end", "play", "pause", "faster", "slower" and "unknown"
+    target_commands = ['start', 'end', 'play', 'pause', 'faster', 'slower', 'unknown']
 
     if data_dir is None:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -282,7 +282,7 @@ def _fetch_tfds_padding(tfds_label, num_needed, data_dir=None, seed=1234):
     Fetch `num_needed` samples of a given label from Google's speech_commands
     dataset, downsample from 16kHz to 8kHz, and convert to MFCC.
 
-    :param tfds_label: label name in the speech_commands dataset (e.g. 'go', 'stop', '_unknown_')
+    :param tfds_label: label name in the speech_commands dataset (e.g. '_unknown_')
     :param num_needed: number of additional samples required
     :param data_dir: optional directory for TFDS cache
     :param seed: random seed for reproducibility
@@ -325,10 +325,10 @@ def prepare_custom_training_data(
     Process custom training wav files into MFCC features and save as a .npz file.
     All samples are used for training (no test split).
 
-    Labels: {start:0, end:1, go:2, stop:3, faster:4, slower:5, unknown:6}
+    Labels: {start:0, end:1, play:2, pause:3, faster:4, slower:5, unknown:6}
 
-    For each class, SAMPLES_PER_CLASS (150) samples are selected.
-    Classes with fewer local samples (go, stop, unknown) are padded from
+    Samples per class are defined in SAMPLES_PER_CLASS (150 for most).
+    Classes with fewer local samples (unknown) are padded from
     Google's speech_commands dataset.
 
     :param training_data_dir: root folder with subfolders per label
@@ -349,30 +349,31 @@ def prepare_custom_training_data(
     all_labels = []
 
     for label_name, label_idx in CUSTOM_LABELS.items():
+        n_samples = SAMPLES_PER_CLASS[label_name]
         folder = os.path.join(training_data_dir, label_name)
         mfccs = _load_wav_files_from_folder(folder)
         print(f"  {label_name}: {len(mfccs)} local samples loaded")
 
         # Pad from speech_commands if this label has a TFDS mapping and needs more data
-        if label_name in TFDS_PADDING_LABELS and len(mfccs) < SAMPLES_PER_CLASS:
+        if label_name in TFDS_PADDING_LABELS and len(mfccs) < n_samples:
             tfds_label = TFDS_PADDING_LABELS[label_name]
-            num_needed = SAMPLES_PER_CLASS - len(mfccs)
+            num_needed = n_samples - len(mfccs)
             print(f"  Padding {label_name} with {num_needed} samples from speech_commands '{tfds_label}'...")
             extra = _fetch_tfds_padding(tfds_label, num_needed, data_dir=tfds_data_dir, seed=seed)
             mfccs.extend(extra)
             print(f"  {label_name}: {len(mfccs)} total samples after padding")
 
-        # Shuffle and select exactly SAMPLES_PER_CLASS
+        # Shuffle and select exactly n_samples
         indices = np.arange(len(mfccs))
         rng.shuffle(indices)
-        selected = indices[:SAMPLES_PER_CLASS]
+        selected = indices[:n_samples]
 
         for i in selected:
             all_mfcc.append(mfccs[i])
             all_labels.append(label_idx)
 
     # Stack into arrays
-    train_mfcc = np.stack(all_mfcc)     # (1050, 98, 13)
+    train_mfcc = np.stack(all_mfcc)     # (1200, 98, 13)
     train_labels = np.array(all_labels, dtype=np.int64)
 
     # Shuffle
@@ -452,7 +453,7 @@ def load_custom_dataset(npz_path=None, batch_size=8, augment=True):
         npz_path = os.path.join(script_dir, 'processed', 'custom_kws_dataset.npz')
 
     data = np.load(npz_path)
-    train_mfcc = data['train_mfcc']     # (1050, 98, 13)
+    train_mfcc = data['train_mfcc']     # (1200, 98, 13)
     train_labels = data['train_labels']
 
     # Add channel dimension for CNN: (N, 98, 13) -> (N, 98, 13, 1)
