@@ -1,9 +1,10 @@
-from utils.convert_to_mfcc import compute_mfcc_np
+from utils.convert_to_mfcc import compute_mfcc_np, compute_mfcc_wav
 from utils.write_wav import write_wav_int16
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
-import os 
+import os
+import glob
 import numpy as np
 from scipy.signal import decimate
 
@@ -12,6 +13,14 @@ SAMPLE_RATE = 8000
 DOWNSAMPLE_FACTOR = ORIGINAL_SAMPLE_RATE // SAMPLE_RATE
 NUM_FRAMES = 98 #Assumeing 1 second audio clips with 25ms frame length and 10ms frame step
 NUM_MFCC = 13
+
+# Custom training data label mapping
+CUSTOM_LABELS = {'start': 0, 'end': 1, 'go': 2, 'stop': 3, 'faster': 4, 'slower': 5, 'unknown': 6}
+SAMPLES_PER_CLASS = 150
+
+# Labels that can be padded from Google's speech_commands dataset.
+# Maps local label name -> speech_commands label name.
+TFDS_PADDING_LABELS = {'go': 'go', 'stop': 'stop', 'unknown': '_unknown_'}
 
 
 def inspect_speech_command_data(dataset_name='speech_commands', split='test', data_dir=None):
@@ -252,5 +261,218 @@ def fetch_speech_data_in_wav(
             print(f"  {k:10s} -> {saved_paths[k]}")
     
 
+def _load_wav_files_from_folder(folder_path):
+    """
+    Recursively load all .wav files from a folder (including subfolders)
+    and convert each to MFCC.
+
+    :param folder_path: path to the root folder containing .wav files
+    :return: list of MFCC arrays, each (NUM_FRAMES, NUM_MFCC)
+    """
+    wav_files = sorted(glob.glob(os.path.join(folder_path, "**", "*.wav"), recursive=True))
+    mfccs = []
+    for f in wav_files:
+        mfcc = compute_mfcc_wav(f)
+        mfccs.append(mfcc.astype(np.float32))
+    return mfccs
+
+
+def _fetch_tfds_padding(tfds_label, num_needed, data_dir=None, seed=1234):
+    """
+    Fetch `num_needed` samples of a given label from Google's speech_commands
+    dataset, downsample from 16kHz to 8kHz, and convert to MFCC.
+
+    :param tfds_label: label name in the speech_commands dataset (e.g. 'go', 'stop', '_unknown_')
+    :param num_needed: number of additional samples required
+    :param data_dir: optional directory for TFDS cache
+    :param seed: random seed for reproducibility
+    :return: list of MFCC arrays
+    """
+    if data_dir is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        data_dir = os.path.join(script_dir, 'tensorflow_datasets')
+
+    ds, info = tfds.load("speech_commands", split="train", with_info=True, data_dir=data_dir)
+    label_names = info.features["label"].names
+    target_idx = label_names.index(tfds_label)
+
+    matched_samples = []
+    for ex in tfds.as_numpy(ds):
+        if int(ex["label"]) == target_idx:
+            matched_samples.append(ex["audio"])
+        if len(matched_samples) >= num_needed * 3:
+            break
+
+    rng = np.random.default_rng(seed)
+    rng.shuffle(matched_samples)
+    matched_samples = matched_samples[:num_needed]
+
+    mfccs = []
+    for audio in matched_samples:
+        audio_ds = decimate(audio, DOWNSAMPLE_FACTOR).astype(np.int16)
+        mfcc = compute_mfcc_np(audio_ds).astype(np.float32)
+        mfccs.append(mfcc)
+    return mfccs
+
+
+def prepare_custom_training_data(
+        training_data_dir=None,
+        output_path=None,
+        tfds_data_dir=None,
+        seed=1234
+):
+    """
+    Process custom training wav files into MFCC features and save as a .npz file.
+    All samples are used for training (no test split).
+
+    Labels: {start:0, end:1, go:2, stop:3, faster:4, slower:5, unknown:6}
+
+    For each class, SAMPLES_PER_CLASS (150) samples are selected.
+    Classes with fewer local samples (go, stop, unknown) are padded from
+    Google's speech_commands dataset.
+
+    :param training_data_dir: root folder with subfolders per label
+    :param output_path: path to save the .npz output file
+    :param tfds_data_dir: optional TFDS cache directory
+    :param seed: random seed for shuffling and selection
+    :return: tf.data.Dataset for training
+    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if training_data_dir is None:
+        training_data_dir = os.path.join(script_dir, 'training_data')
+    if output_path is None:
+        output_path = os.path.join(script_dir, 'processed', 'custom_kws_dataset.npz')
+
+    rng = np.random.default_rng(seed)
+
+    all_mfcc = []
+    all_labels = []
+
+    for label_name, label_idx in CUSTOM_LABELS.items():
+        folder = os.path.join(training_data_dir, label_name)
+        mfccs = _load_wav_files_from_folder(folder)
+        print(f"  {label_name}: {len(mfccs)} local samples loaded")
+
+        # Pad from speech_commands if this label has a TFDS mapping and needs more data
+        if label_name in TFDS_PADDING_LABELS and len(mfccs) < SAMPLES_PER_CLASS:
+            tfds_label = TFDS_PADDING_LABELS[label_name]
+            num_needed = SAMPLES_PER_CLASS - len(mfccs)
+            print(f"  Padding {label_name} with {num_needed} samples from speech_commands '{tfds_label}'...")
+            extra = _fetch_tfds_padding(tfds_label, num_needed, data_dir=tfds_data_dir, seed=seed)
+            mfccs.extend(extra)
+            print(f"  {label_name}: {len(mfccs)} total samples after padding")
+
+        # Shuffle and select exactly SAMPLES_PER_CLASS
+        indices = np.arange(len(mfccs))
+        rng.shuffle(indices)
+        selected = indices[:SAMPLES_PER_CLASS]
+
+        for i in selected:
+            all_mfcc.append(mfccs[i])
+            all_labels.append(label_idx)
+
+    # Stack into arrays
+    train_mfcc = np.stack(all_mfcc)     # (1050, 98, 13)
+    train_labels = np.array(all_labels, dtype=np.int64)
+
+    # Shuffle
+    order = np.arange(len(train_labels))
+    rng.shuffle(order)
+    train_mfcc = train_mfcc[order]
+    train_labels = train_labels[order]
+
+    # Save to .npz
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    np.savez(
+        output_path,
+        train_mfcc=train_mfcc,
+        train_labels=train_labels,
+    )
+    print(f"Saved processed dataset to {output_path}")
+    print(f"  Train: {train_mfcc.shape} ({len(train_labels)} samples, {len(CUSTOM_LABELS)} classes)")
+
+    train_ds = load_custom_dataset(output_path)
+    return train_ds
+
+
+def _augment_mfcc(mfcc):
+    """
+    Apply random augmentations to an MFCC tensor for training.
+    - Time shift: roll along the time axis
+    - Gaussian noise injection
+    - Frequency masking: zero out random frequency bands
+    - Time masking: zero out random time steps
+
+    :param mfcc: input tensor of shape (98, 13, 1)
+    :return: augmented tensor of same shape
+    """
+    # Time shift: roll by up to ±5 frames
+    shift = tf.random.uniform([], -5, 6, dtype=tf.int32)
+    mfcc = tf.roll(mfcc, shift=shift, axis=0)
+
+    # Gaussian noise
+    noise = tf.random.normal(tf.shape(mfcc), stddev=0.02)
+    mfcc = mfcc + noise
+
+    # Frequency masking: zero out 1-3 consecutive frequency bins
+    f_width = tf.random.uniform([], 1, 4, dtype=tf.int32)
+    f_start = tf.random.uniform([], 0, 13 - 3, dtype=tf.int32)
+    freq_mask = tf.concat([
+        tf.ones([98, f_start, 1]),
+        tf.zeros([98, f_width, 1]),
+        tf.ones([98, 13 - f_start - f_width, 1]),
+    ], axis=1)
+    mfcc = mfcc * freq_mask
+
+    # Time masking: zero out 3-8 consecutive time frames
+    t_width = tf.random.uniform([], 3, 9, dtype=tf.int32)
+    t_start = tf.random.uniform([], 0, 98 - 8, dtype=tf.int32)
+    time_mask = tf.concat([
+        tf.ones([t_start, 13, 1]),
+        tf.zeros([t_width, 13, 1]),
+        tf.ones([98 - t_start - t_width, 13, 1]),
+    ], axis=0)
+    mfcc = mfcc * time_mask
+
+    return mfcc
+
+
+def load_custom_dataset(npz_path=None, batch_size=8, augment=True):
+    """
+    Load a previously saved .npz dataset and return a batched tf.data.Dataset
+    ready for training.
+
+    :param npz_path: path to the .npz file
+    :param batch_size: batch size for the dataset
+    :param augment: whether to apply data augmentation
+    :return: tf.data.Dataset yielding (mfcc, label) pairs
+    """
+    if npz_path is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        npz_path = os.path.join(script_dir, 'processed', 'custom_kws_dataset.npz')
+
+    data = np.load(npz_path)
+    train_mfcc = data['train_mfcc']     # (1050, 98, 13)
+    train_labels = data['train_labels']
+
+    # Add channel dimension for CNN: (N, 98, 13) -> (N, 98, 13, 1)
+    train_mfcc = train_mfcc[..., np.newaxis]
+
+    train_ds = tf.data.Dataset.from_tensor_slices((train_mfcc, train_labels))
+    train_ds = train_ds.shuffle(len(train_labels))
+    if augment:
+        train_ds = train_ds.map(
+            lambda mfcc, label: (_augment_mfcc(mfcc), label),
+            num_parallel_calls=tf.data.AUTOTUNE
+        )
+    train_ds = train_ds.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    print(f"Loaded dataset from {npz_path}")
+    print(f"  Train: {train_mfcc.shape[0]} samples")
+    print(f"  Augmentation: {'ON' if augment else 'OFF'}, Batch size: {batch_size}")
+
+    return train_ds
+
+
 if __name__ == "__main__":
-    fetch_speech_data_in_wav()
+    prepare_custom_training_data()
