@@ -2,12 +2,12 @@ import numpy as np
 
 # Existing labels
 TARGET_COMMANDS = [
-    'go',
-    'on', 
-    'stop', 
-    'up', 
-    'down', 
-    '_silence_', 
+    'start',
+    'end', 
+    'play', 
+    'pause', 
+    'faster', 
+    'slower', 
     '_unknown_'
 ]
 
