@@ -10,7 +10,7 @@ from utils.convert_to_mfcc import chunk_wav_to_mfccs
 MODEL_PATH = 'cnn_kws_model'
 BATCH_SIZE = 64
 
-TARGET_COMMANDS = ['go', 'on', 'stop', 'up', 'down', '_silence_', '_unknown_']
+TARGET_COMMANDS = ['start', 'end', 'play', 'pause', 'faster', 'slower', 'unknown']
 
 
 def evaluate_wav(wav_path, model_path=MODEL_PATH, overlap=0.5):
@@ -81,13 +81,53 @@ def print_confusion_matrix(cm, class_names):
         print(row_str)
 
 
+def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5):
+    """
+    Evaluate all .wav files in a directory, predicting a single label per file
+    (the label with highest average confidence across all segments).
+
+    :param wav_dir: path to directory containing .wav files
+    :param model_path: path to the saved Keras model
+    :param overlap: overlap fraction between segments (default 0.5)
+    """
+    import os
+    model = tf.keras.models.load_model(model_path)
+
+    wav_files = sorted([f for f in os.listdir(wav_dir) if f.lower().endswith('.wav')])
+
+    col_w = [30, 12, 12]
+    header = f"{'File':<{col_w[0]}} {'Prediction':<{col_w[1]}} {'Confidence':>{col_w[2]}}"
+    sep = '-' * (sum(col_w) + 2)
+    print(header)
+    print(sep)
+
+    for fname in wav_files:
+        path = os.path.join(wav_dir, fname)
+        mfccs = chunk_wav_to_mfccs(path, overlap=overlap)
+
+        all_probs = []
+        for mfcc in mfccs:
+            x = np.expand_dims(mfcc, axis=-1)
+            x = np.expand_dims(x, axis=0)
+            logits = model(x, training=False)
+            probs = tf.nn.softmax(logits, axis=1).numpy()[0]
+            all_probs.append(probs)
+
+        avg_probs = np.mean(all_probs, axis=0)
+        pred_idx = int(np.argmax(avg_probs))
+        confidence = float(avg_probs[pred_idx])
+        label = TARGET_COMMANDS[pred_idx]
+        print(f"{fname:<{col_w[0]}} {label:<{col_w[1]}} {confidence:>{col_w[2]-1}.2%}")
+
+
 def main():
     #accuracy, cm = evaluate_model()
 
     #print(f'Test accuracy: {accuracy * 100.0:.2f}%')
     #print('Confusion matrix (rows=true, cols=pred):')
     #print_confusion_matrix(cm, TARGET_COMMANDS)
-    evaluate_wav(r"E:\AI-for-CG4002\AI\tensorflow-model\data\wav_samples\audio_unknown.wav")
+    wav_dir = r"E:\AI-for-CG4002\AI\tensorflow-model\data\test_wav_samples"
+    evaluate_wav_dir(wav_dir)
 
 if __name__ == '__main__':
     main()

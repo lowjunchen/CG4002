@@ -38,49 +38,31 @@ def write_h_header(filepath, var_name, array, dtype="data_t"):
         f.write("\n};\n")
 
 
-def export_layer(layer, export_dir):
-    weights = layer.get_weights()
-    if not weights:
-        return
+def fuse_conv_bn(kernel, bias, gamma, beta, moving_mean, moving_variance, eps=1e-3):
+    """
+    Fold BatchNormalization parameters into Conv2D kernel and bias.
+    """
+    scale   = gamma / np.sqrt(moving_variance + eps)  
+    w_fused = kernel * scale                         
+    b_fused = (bias - moving_mean) * scale + beta       
+    return w_fused, b_fused
 
-    print(f"\nExporting layer: {layer.name} ({layer.__class__.__name__})")
 
-    #Exporting weight and bias for Conv layers and Dense layers
-    if isinstance(layer, tf.keras.layers.Conv2D) or isinstance(layer, tf.keras.layers.Dense):
-        kernel, bias = weights
+def export_conv_weights(layer_name, kernel, bias, export_dir):
+    print(f"  Kernel shape: {kernel.shape}")
+    print(f"  Bias shape  : {bias.shape}")
 
-        print("  Kernel shape:", kernel.shape)
-        print("  Bias shape  :", bias.shape)
+    write_h_header(os.path.join(export_dir, f"{layer_name}_w.h"), f"{layer_name}_w", kernel)
+    write_h_header(os.path.join(export_dir, f"{layer_name}_b.h"), f"{layer_name}_b", bias)
 
-        write_h_header(
-            os.path.join(export_dir, f"{layer.name}_w.h"),
-            f"{layer.name}_w",
-            kernel
-        )
+    if EXPORT_CSV:
+        np.savetxt(os.path.join(export_dir, f"{layer_name}_w.csv"), kernel.flatten(), delimiter=",")
+        np.savetxt(os.path.join(export_dir, f"{layer_name}_b.csv"), bias, delimiter=",")
 
-        write_h_header(
-            os.path.join(export_dir, f"{layer.name}_b.h"),
-            f"{layer.name}_b",
-            bias
-        )
+    if EXPORT_NPY:
+        np.save(os.path.join(export_dir, f"{layer_name}_w.npy"), kernel)
+        np.save(os.path.join(export_dir, f"{layer_name}_b.npy"), bias)
 
-        # For CSV export, flatten the kernel to 1D for easier parsing in C/C++
-        if EXPORT_CSV:
-            np.savetxt(
-                os.path.join(export_dir, f"{layer.name}_w.csv"),
-                kernel.flatten(),
-                delimiter=","
-            )
-            np.savetxt(
-                os.path.join(export_dir, f"{layer.name}_b.csv"),
-                bias,
-                delimiter=","
-            )
-        
-        # For NPY export, save the kernel and bias in their original shapes for potential use in Python or other tools
-        if EXPORT_NPY:
-            np.save(os.path.join(export_dir, f"{layer.name}_w.npy"), kernel)
-            np.save(os.path.join(export_dir, f"{layer.name}_b.npy"), bias)
 
 def main():
     ensure_dir(EXPORT_DIR)
@@ -90,9 +72,35 @@ def main():
     print("Model summary:")
     model.summary()
 
-    # Export weights for each layer
-    for layer in model.layers:
-        export_layer(layer, EXPORT_DIR)
+    layers = model.layers
+    i = 0
+    while i < len(layers):
+        layer = layers[i]
+
+        if isinstance(layer, tf.keras.layers.Conv2D):
+            kernel, bias = layer.get_weights()
+
+            # If the next layer is BatchNorm, fold it into the conv weights
+            if i + 1 < len(layers) and isinstance(layers[i + 1], tf.keras.layers.BatchNormalization):
+                bn = layers[i + 1]
+                gamma, beta, moving_mean, moving_variance = bn.get_weights()
+                print(f"\nExporting layer: {layer.name} ({layer.__class__.__name__}) + {bn.name} (BatchNormalization) [fused]")
+                kernel, bias = fuse_conv_bn(kernel, bias, gamma, beta, moving_mean, moving_variance)
+                i += 2  # consume both Conv and BN
+            else:
+                print(f"\nExporting layer: {layer.name} ({layer.__class__.__name__})")
+                i += 1
+
+            export_conv_weights(layer.name, kernel, bias, EXPORT_DIR)
+
+        elif isinstance(layer, tf.keras.layers.Dense):
+            kernel, bias = layer.get_weights()
+            print(f"\nExporting layer: {layer.name} ({layer.__class__.__name__})")
+            export_conv_weights(layer.name, kernel, bias, EXPORT_DIR)
+            i += 1
+
+        else:
+            i += 1
 
     print("\nAll weights exported to:", EXPORT_DIR)
 
