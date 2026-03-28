@@ -1,0 +1,88 @@
+@startuml
+title Capstone Communications Architecture
+
+top to bottom direction
+skinparam shadowing false
+skinparam defaultTextAlignment center
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+skinparam linetype polyline
+skinparam nodesep 60
+skinparam ranksep 60
+
+package "Hardware Wearables" {
+  together {
+    rectangle "Left Glove ESP32\nIMU + BPM + Battery\nPublishes sensors/device/1" as left_glove
+    rectangle "Right Glove ESP32\nIMU + BPM + Battery\nPublishes sensors/device/2" as right_glove
+    rectangle "Headset ESP32\nMicrophone + IMU + Battery\nPublishes audio/headset/<id>\nand sensors/headset/<id>" as headset
+  }
+}
+
+package "Laptop Host" {
+  together {
+    rectangle "Mosquitto MQTT Broker\nTLS listener :8883\nOptional plaintext :1883" as broker
+    rectangle "Node-RED\nOptional monitoring / logging" as nodered
+    rectangle "Unity MQTT Client\nSubscribes sensors/device/1\nand sensors/device/2" as unity
+  }
+}
+
+cloud "Reverse SSH Tunnel\nLaptop -> Ultra96\nUltra96 localhost:18883\nforwards to Laptop broker :8883" as tunnel
+
+package "Ultra96 / FPGA" {
+  together {
+    rectangle "MQTT Client\nConnects to localhost:18883\nSubscribes audio/headset/<id>" as ultra_mqtt
+    rectangle "Audio Buffer + MFCC\nSoftware preprocessing" as mfcc
+    rectangle "FPGA Inference Accelerator\nDMA-based command classification" as fpga
+    rectangle "MQTT Publisher\nPublishes ai/ultra96/result" as ultra_pub
+  }
+}
+
+' Layout helpers
+left_glove -[hidden]right-> right_glove
+right_glove -[hidden]right-> headset
+broker -[hidden]right-> nodered
+nodered -[hidden]right-> unity
+ultra_mqtt -[hidden]right-> mfcc
+mfcc -[hidden]right-> fpga
+fpga -[hidden]right-> ultra_pub
+
+left_glove --> broker : sensors/device/1\nMQTT/TLS :8883
+right_glove --> broker : sensors/device/2\nMQTT/TLS :8883
+headset --> broker : audio/headset/<id>\nsensors/headset/<id>\nMQTT/TLS :8883
+
+broker --> nodered : optional MQTT subscriber
+broker --> unity : sensors/device/1,2\nMQTT/TLS :8883
+
+broker --> tunnel : broker :8883
+tunnel --> ultra_mqtt : localhost:18883\nMQTT/TLS
+
+ultra_mqtt --> mfcc : headset audio
+mfcc --> fpga : MFCC features via DMA
+fpga --> ultra_pub : command result
+broker --> ultra_mqtt : subscribe audio/headset/<id>
+ultra_pub --> broker : publish ai/ultra96/result
+
+legend right
+== mTLS on port 8883 ==
+Broker stores:
+* ca.crt
+* server.crt
+* server.key
+
+Clients store:
+* ca.crt
+* their own client cert
+* their own private key
+
+Unity:
+* ca.crt
+* unity_pub.pfx
+
+ESP32 firmware embeds:
+* CA cert
+* client cert
+* private key
+via certs.h
+end legend
+
+@enduml
