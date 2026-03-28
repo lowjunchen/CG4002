@@ -99,8 +99,8 @@ int main() {
     }
 
     // Compare Absolute and Relative Tolerance
-    const float atol = 1e-3f;   //Absolute Tolerance
-    const float rtol = 1e-3f;   //Relative Tolerance
+    const float atol = 5e-3f;   //Absolute Tolerance (relaxed for BN-fused fixed-point quantization)
+    const float rtol = 5e-3f;   //Relative Tolerance (relaxed for BN-fused fixed-point quantization)
 
     float max_abs_err = 0.0f;
     float max_rel_err = 0.0f;

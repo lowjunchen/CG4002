@@ -3,4 +3,6 @@
 /cnn_kws_model/
 /hls_weights/
 /hls_tb_io/
-/data/wav_samples/
+test_wav_samples/
+training_data/
+processed/

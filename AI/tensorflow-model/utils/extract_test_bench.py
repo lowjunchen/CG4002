@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import tensorflow as tf
-from data.extract_data import fetch_speech_data_in_mfcc
+from data.extract_data import load_custom_dataset
 
 """
 Script to extract data to be used in the HLS test bench for the CNN KWS model. This includes:
@@ -23,9 +23,9 @@ def extract_test_bench_data(model_path=MODEL_PATH, output_dir=OUTPUT_DIR, num_sa
     ensure_dir(output_dir)
     model = tf.keras.models.load_model(model_path)
 
-    train_ds, test_ds = fetch_speech_data_in_mfcc(batch_size=1)
+    ds = load_custom_dataset(batch_size=1, augment=False)
 
-    for mfcc, label in test_ds.take(num_samples):
+    for mfcc, label in ds.take(num_samples):
         x = mfcc.numpy() 
         y = label.numpy()
 
@@ -36,7 +36,7 @@ def extract_test_bench_data(model_path=MODEL_PATH, output_dir=OUTPUT_DIR, num_sa
     if len(mfcc_2d.shape) == 3 and mfcc_2d.shape[-1] == 1:
         mfcc_2d = mfcc_2d[:, :, 0]
     
-    logits = model(x).numpy()[0]  # Get the logits for the single sample
+    logits = model(x, training=False).numpy()[0]  # Get the logits for the single sample
     print("Label:", y)
     print("Logits:", logits)
 
