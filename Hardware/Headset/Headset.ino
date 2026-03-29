@@ -54,7 +54,7 @@ const int AMP_PIN = 34;
 const int AUDIO_SAMPLE_RATE = 8000;
 const int AUDIO_CHUNK_MS = 20;
 const int AUDIO_CHUNK_SAMPLES = AUDIO_SAMPLE_RATE * AUDIO_CHUNK_MS / 1000; // 160 samples
-uint8_t audioChunk[AUDIO_CHUNK_SAMPLES];
+int16_t audioChunk[AUDIO_CHUNK_SAMPLES];
 int audioChunkIndex = 0;
 unsigned long lastAudioMicros = 0;
 int micPeakToPeak = 0;
@@ -156,30 +156,34 @@ void streamAudioMQTT() {
   const unsigned long sampleInterval = 1000000UL / AUDIO_SAMPLE_RATE;
   unsigned long nowMicros = micros();
 
-  static int currentMax = 0;
-  static int currentMin = 255;
+  static int16_t currentMax = -32768;
+  static int16_t currentMin = 32767;
   static unsigned long lastP2PUpdate = 0;
 
   while ((unsigned long)(nowMicros - lastAudioMicros) >= sampleInterval) {
     lastAudioMicros += sampleInterval;
 
-    // Read 12-bit ADC (0..4095), compress to 8-bit (0..255)
+    // Read 12-bit ADC and center/expand to signed 16-bit PCM-like samples
     int raw = analogRead(AMP_PIN);
-    uint8_t sample8 = raw >> 4;
+    int16_t sample16 = (raw - 2048) << 4;
 
-    audioChunk[audioChunkIndex++] = sample8;
+    audioChunk[audioChunkIndex++] = sample16;
 
     
 
     // Update peak-to-peak from same audio samples
-    if (sample8 > currentMax) currentMax = sample8;
-    if (sample8 < currentMin) currentMin = sample8;
+    if (sample16 > currentMax) currentMax = sample16;
+    if (sample16 < currentMin) currentMin = sample16;
 
     // Publish audio chunk once full
 // Publish audio chunk once full
 if (audioChunkIndex >= AUDIO_CHUNK_SAMPLES) {
   String audioTopic = "audio/headset/" + String(DEVICE_ID);
-  bool ok = client.publish(audioTopic.c_str(), audioChunk, AUDIO_CHUNK_SAMPLES);
+  bool ok = client.publish(
+    audioTopic.c_str(),
+    (uint8_t*)audioChunk,
+    AUDIO_CHUNK_SAMPLES * sizeof(int16_t)
+  );
 
   if (ok) {
     audioPacketsSent++;
@@ -195,8 +199,8 @@ if (audioChunkIndex >= AUDIO_CHUNK_SAMPLES) {
     unsigned long nowMs = millis();
     if (nowMs - lastP2PUpdate >= 20) {
       micPeakToPeak = currentMax - currentMin;
-      currentMax = 0;
-      currentMin = 255;
+      currentMax = -32768;
+      currentMin = 32767;
       lastP2PUpdate = nowMs;
     }
 
@@ -219,7 +223,7 @@ void setup() {
   Wire.begin(21, 22, 100000);
 
   // Bigger MQTT packet buffer for audio payload
-  client.setBufferSize(512);
+  client.setBufferSize(1024);
 
   connectWiFi();
 
