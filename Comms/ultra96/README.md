@@ -3,7 +3,7 @@ Use this when the Ultra96 cannot reach the broker directly due to network restri
 
 This folder provides a simple script with two modes:
 - `forward` (recommended): Ultra96 publishes to a remote broker via a local port.
-- `reverse`: expose a broker running on Ultra96 to a remote host.
+- `reverse`: expose a broker target reachable from the machine running the script to the remote host.
 
 **Files**
 - `Comms/ultra96/ssh_tunnel.sh`: starts the tunnel (uses `autossh` if available).
@@ -33,12 +33,23 @@ Then point your Ultra96 MQTT client to:
 - issue a cert with `localhost` in SAN, or
 - disable hostname verification on the MQTT client.
 
-**3. Reverse mode (expose Ultra96 broker)**
-Use this if a broker is running on the Ultra96 and you want to connect from outside.
+**3. Reverse mode (expose a broker target to Ultra96)**
+Use this if the Ultra96 can SSH to your laptop but cannot reach the broker directly. The reverse tunnel opens a port on the Ultra96-side SSH server and forwards it to a target reachable from the machine running the script.
 
 ```bash
 MODE=reverse Comms/ultra96/ssh_tunnel.sh
 ```
+
+Configure the target with:
+```bash
+REVERSE_TARGET_HOST=18.140.9.0
+REVERSE_TARGET_PORT=8883
+REMOTE_PORT=18883
+```
+
+Then point the Ultra96 MQTT client to:
+- host: `localhost`
+- port: `REMOTE_PORT` (default `18883`)
 
 By default the remote port binds to `127.0.0.1` for safety. If you want the port accessible externally on the jump host, set:
 ```

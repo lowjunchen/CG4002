@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load env file if present
-ENV_FILE="${ENV_FILE:-$(dirname "$0")/tunnel.env.example}"
+# Load env file if present. Prefer the real env file over the example template.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_ENV_FILE="${SCRIPT_DIR}/tunnel.env"
+if [[ ! -f "${DEFAULT_ENV_FILE}" ]]; then
+  DEFAULT_ENV_FILE="${SCRIPT_DIR}/tunnel.env.example"
+fi
+ENV_FILE="${ENV_FILE:-${DEFAULT_ENV_FILE}}"
 if [[ -f "${ENV_FILE}" ]]; then
   # shellcheck disable=SC1090
   source "${ENV_FILE}"
@@ -18,9 +23,11 @@ LOCAL_PORT="${LOCAL_PORT:-18883}"     # local port on Ultra96
 BROKER_HOST="${BROKER_HOST:-localhost}"
 BROKER_PORT="${BROKER_PORT:-8883}"
 
-# Reverse mode: expose Ultra96 local broker to remote host.
+# Reverse mode: expose a local target on the machine running this script to the remote host.
 REMOTE_BIND_ADDR="${REMOTE_BIND_ADDR:-127.0.0.1}"
 REMOTE_PORT="${REMOTE_PORT:-18883}"   # port opened on remote host
+REVERSE_TARGET_HOST="${REVERSE_TARGET_HOST:-localhost}"
+REVERSE_TARGET_PORT="${REVERSE_TARGET_PORT:-${LOCAL_PORT}}"
 
 if [[ -z "${TUNNEL_USER}" || -z "${TUNNEL_HOST}" ]]; then
   echo "Missing TUNNEL_USER or TUNNEL_HOST. Update tunnel.env." >&2
@@ -41,8 +48,8 @@ case "${MODE}" in
     exec "${SSH_CMD[@]}" -L "${LOCAL_PORT}:${BROKER_HOST}:${BROKER_PORT}" "${TUNNEL_USER}@${TUNNEL_HOST}"
     ;;
   reverse)
-    echo "Starting reverse tunnel: ${TUNNEL_HOST}:${REMOTE_PORT} -> localhost:${LOCAL_PORT}"
-    exec "${SSH_CMD[@]}" -R "${REMOTE_BIND_ADDR}:${REMOTE_PORT}:localhost:${LOCAL_PORT}" "${TUNNEL_USER}@${TUNNEL_HOST}"
+    echo "Starting reverse tunnel: ${TUNNEL_HOST}:${REMOTE_PORT} -> ${REVERSE_TARGET_HOST}:${REVERSE_TARGET_PORT}"
+    exec "${SSH_CMD[@]}" -R "${REMOTE_BIND_ADDR}:${REMOTE_PORT}:${REVERSE_TARGET_HOST}:${REVERSE_TARGET_PORT}" "${TUNNEL_USER}@${TUNNEL_HOST}"
     ;;
   *)
     echo "Unknown MODE=${MODE}. Use 'forward' or 'reverse'." >&2
