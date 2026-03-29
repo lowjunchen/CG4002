@@ -14,8 +14,7 @@ class VoiceDataCollector:
 
     def voice_data_handler(self, client_or_payload, msg=None):
         payload = client_or_payload if msg is None else msg.payload
-        raw = np.frombuffer(payload, dtype=np.uint8)
-        in_pkt = (raw.astype(np.int16) - 128) * 256
+        in_pkt = np.frombuffer(payload, dtype=np.int16)
         self.audio_buffer.append(in_pkt)
         self.batch_pkt_counter += 1
         self.batch_sample_counter += len(in_pkt)
