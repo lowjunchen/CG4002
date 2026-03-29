@@ -29,10 +29,10 @@ const unsigned long BLINK_INTERVAL = 500;  // ms
 
 // -------- WiFi --------
 const char* ssid = "XH001";  // My phone will always be with me. Network (should) be available.
-const char* password = "zxd19901120";
+const char* password = "12345678";
 
 // -------- MQTT --------
-const char* mqttServer = "Yeos-MacBook-Pro.local";  // Prefer a stable hostname covered by server.ext
+const char* mqttServer = "18.140.9.0";  // EC2 Elastic IP; must be present in broker server SAN
 const int mqttPort = 8883;
 // const int mqttPort = 1883;
 

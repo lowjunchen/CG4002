@@ -32,10 +32,10 @@ const unsigned long BLINK_INTERVAL = 500; // ms
 
 // -------- WiFi --------
 const char* ssid = "XH001";  // My phone will always be with me. Network (should) be available.
-const char* password = "zxd19901120";
+const char* password = "12345678";
 
 // -------- MQTT --------
-const char* mqttServer = "Yeos-MacBook-Pro.local";
+const char* mqttServer = "18.140.9.0";
 const int mqttPort = 8883;
 
 WiFiClientSecure espClient;
