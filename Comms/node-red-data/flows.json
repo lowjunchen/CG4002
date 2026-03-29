@@ -138,7 +138,7 @@
         "type": "debug",
         "z": "73544b573df69959",
         "name": "debug 1",
-        "active": true,
+        "active": false,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -626,8 +626,8 @@
         "id": "b4571cd91b3896e2",
         "type": "mqtt in",
         "z": "c474bad29accdf39",
-        "name": "Mosquitto audio/headset/1",
-        "topic": "audio/headset/1",
+        "name": "Mosquitto audio/headset/3",
+        "topic": "audio/headset/3",
         "qos": "2",
         "datatype": "auto-detect",
         "broker": "e5ed26465bcdc1da",
@@ -678,5 +678,42 @@
         "x": 620,
         "y": 460,
         "wires": []
+    },
+    {
+        "id": "36c282110580dc11",
+        "type": "debug",
+        "z": "c474bad29accdf39",
+        "name": "debug 3",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 540,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "9b67ffa8c44e6dbb",
+        "type": "mqtt in",
+        "z": "c474bad29accdf39",
+        "name": "Mosquitto ai/ultra96/results",
+        "topic": "ai/ultra96/result",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "e5ed26465bcdc1da",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 240,
+        "y": 620,
+        "wires": [
+            [
+                "36c282110580dc11"
+            ]
+        ]
     }
 ]

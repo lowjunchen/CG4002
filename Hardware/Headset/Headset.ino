@@ -28,14 +28,14 @@ bool whiteBlinkState = false;
 unsigned long lastBlink = 0;
 const unsigned long BLINK_INTERVAL = 500; // ms
 
-#define DEVICE_ID "1"
+#define DEVICE_ID "3"
 
 // -------- WiFi --------
-const char* ssid = "LOW's S24+";
-const char* password = "uuykg2ags4uyncf";
+const char* ssid = "XH001";  // My phone will always be with me. Network (should) be available.
+const char* password = "12345678";
 
 // -------- MQTT --------
-const char* mqttServer = "Yeos-MacBook-Pro.local";
+const char* mqttServer = "18.140.9.0";
 const int mqttPort = 8883;
 
 WiFiClientSecure espClient;

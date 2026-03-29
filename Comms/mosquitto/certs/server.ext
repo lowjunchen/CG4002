@@ -2,4 +2,4 @@ authorityKeyIdentifier=keyid,issuer
 basicConstraints=CA:FALSE
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth
-subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:mosquitto,DNS:host.docker.internal,DNS:broker.local,DNS:Yeos-MacBook-Pro.local
+subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:mosquitto,DNS:host.docker.internal,DNS:broker.local,DNS:Yeos-MacBook-Pro.local, IP:172.20.10.3,IP:18.140.9.0,DNS:ec2-18-140-9-0.ap-southeast-1.compute.amazonaws.com
