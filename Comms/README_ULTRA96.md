@@ -36,7 +36,7 @@ If missing, copy from laptop. Do **not** regenerate certs on Ultra96 unless you 
 ---
 
 **3. Reverse SSH tunnel (run on laptop)**
-We open a port on Ultra96 (`18883`) that forwards to the laptop broker (`8883`).
+We open a port on Ultra96 (`18883`) that forwards to a broker reachable from the laptop. This can be the laptop's local broker or the AWS broker.
 
 Edit `Comms/ultra96/tunnel.env` **on your laptop**:
 ```
@@ -45,8 +45,9 @@ TUNNEL_USER=xilinx
 TUNNEL_HOST=makerslab-fpga-33.ddns.comp.nus.edu.sg
 TUNNEL_PORT=22
 
-# Laptop broker port
-LOCAL_PORT=8883
+# Reverse target reachable from the laptop
+REVERSE_TARGET_HOST=18.140.9.0
+REVERSE_TARGET_PORT=8883
 
 # Port exposed on Ultra96
 REMOTE_BIND_ADDR=127.0.0.1
@@ -73,6 +74,12 @@ ss -ltnp | grep 18883
 **4. Run the simulator on Ultra96**
 ```bash
 python3 Comms/simulator/mqtt_simulator.py --tls --host localhost --port 18883
+```
+
+If you still want to proxy to a broker running on the laptop itself, set:
+```bash
+REVERSE_TARGET_HOST=localhost
+REVERSE_TARGET_PORT=8883
 ```
 
 ---
@@ -103,8 +110,8 @@ Node‑RED already subscribes to the broker. Ensure the **Mosquitto Inputs** tab
 ---
 
 **Common issues**
-- **Connection reset** on Ultra96: tunnel forwarding to wrong local port on laptop.  
-  Make sure `LOCAL_PORT=8883` in `tunnel.env`.
+- **Connection reset** on Ultra96: tunnel forwarding to the wrong broker target.  
+  Make sure `REVERSE_TARGET_HOST` and `REVERSE_TARGET_PORT` point to the broker the laptop can reach.
 - **No listener on Ultra96**: reverse tunnel not running or exited.
 - **TLS handshake fails**: certs on Ultra96 don’t match broker CA.
   Compare hashes:
