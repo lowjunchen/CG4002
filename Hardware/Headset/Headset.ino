@@ -6,6 +6,7 @@
 #include <PubSubClient.h>
 #include <time.h>
 #include <math.h>
+#include "driver/i2s.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -26,15 +27,19 @@
 #define PWM_FREQ 5000
 #define PWM_RES  8
 
+#define I2S_WS   14   // LRCL
+#define I2S_SCK  13   // BCLK
+#define I2S_SD   34   // DOUT
+
+#define I2S_PORT I2S_NUM_0
+
 // -------- Audio tuning --------
-int32_t dcOffset = 2048;
 const int NOISE_GATE = 6;
-const int GAIN_SHIFT = 4;
 
 const int AUDIO_SAMPLE_RATE = 8000;
 const int AUDIO_CHUNK_MS = 20;
 const int AUDIO_CHUNK_SAMPLES = AUDIO_SAMPLE_RATE * AUDIO_CHUNK_MS / 1000; // 160
-const int AUDIO_QUEUE_LEN = 24; // 480 ms of buffering
+const int AUDIO_QUEUE_LEN =8; // 160 ms of buffering
 
 struct AudioChunk {
   int16_t samples[AUDIO_CHUNK_SAMPLES];
@@ -45,7 +50,6 @@ TaskHandle_t audioTaskHandle = nullptr;
 
 volatile int micPeakToPeak = 0;
 volatile uint32_t audioDroppedChunks = 0;
-volatile uint32_t audioLateSamples = 0;
 
 unsigned long audioPacketsSent = 0;
 unsigned long lastAudioReport = 0;
@@ -72,9 +76,6 @@ Adafruit_MAX17048 maxlipo;
 float battHist[3] = {0, 0, 0};
 int battIndex = 0;
 bool battStable = false;
-
-// -------- Microphone --------
-const int AMP_PIN = 34;
 
 // -------- MPU6050 --------
 const int MPU_ADDR = 0x68;
@@ -104,7 +105,6 @@ float cellVoltage = NAN;
 float batteryPercent = 0;
 bool connectedBattery = false;
 bool movement = false;
-bool hasMAX17048 = false;
 
 // -------- LED state --------
 float breathePhase = 0.0f;
@@ -115,7 +115,6 @@ void connectMQTTNonBlocking();
 void configureTLS();
 void setRGB(int r, int g, int b);
 void breathingColor(int r, int g, int b);
-void calibrateMicDC();
 void audioCaptureTask(void* parameter);
 void publishAudioFromQueue(uint8_t maxChunks);
 void serviceIMU(unsigned long now);
@@ -172,6 +171,34 @@ void configureTLS() {
   espClient.setPrivateKey(CLIENT_KEY);
 }
 
+// ------ INMP441 ---------
+void setupI2S() {
+  const i2s_config_t i2s_config = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+    .sample_rate = AUDIO_SAMPLE_RATE,
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+    .communication_format = I2S_COMM_FORMAT_I2S,
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 8,
+    .dma_buf_len = 256,
+    .use_apll = false,
+    .tx_desc_auto_clear = false,
+    .fixed_mclk = 0
+  };
+
+  const i2s_pin_config_t pin_config = {
+    .bck_io_num = I2S_SCK,
+    .ws_io_num = I2S_WS,
+    .data_out_num = I2S_PIN_NO_CHANGE,
+    .data_in_num = I2S_SD
+  };
+
+  i2s_driver_install(I2S_PORT, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_PORT, &pin_config);
+  i2s_zero_dma_buffer(I2S_PORT);
+}
+
 // -------- LED --------
 void setRGB(int r, int g, int b) {
   ledcWriteChannel(CH_RED,   r);
@@ -190,68 +217,50 @@ void breathingColor(int r, int g, int b) {
   setRGB((r * brightness) / 255, (g * brightness) / 255, (b * brightness) / 255);
 }
 
-// -------- Audio --------
-void calibrateMicDC() {
-  const int CALIBRATION_SAMPLES = 2000;
-  int64_t sum = 0;
-
-  for (int i = 0; i < CALIBRATION_SAMPLES; i++) {
-    sum += analogRead(AMP_PIN);
-    delayMicroseconds(100);
-  }
-
-  dcOffset = sum / CALIBRATION_SAMPLES;
-  Serial.print("Mic DC offset calibrated: ");
-  Serial.println(dcOffset);
-}
-
 void audioCaptureTask(void* parameter) {
+  int32_t i2sBuffer[AUDIO_CHUNK_SAMPLES];
   AudioChunk chunk;
-  int index = 0;
-  int16_t currentMax = -32768;
-  int16_t currentMin = 32767;
-
-  // let setup/serial finish first
-  vTaskDelay(pdMS_TO_TICKS(50));
-
-  // Target: 8000 Hz = 125µs per sample.
-  // analogRead at 12-bit/11dB takes ~20µs, so delay 105µs to hit ~125µs total.
-  static int32_t prev = 0;
+  size_t bytesRead;
 
   for (;;) {
-    int raw = analogRead(AMP_PIN);
-    int32_t centered = raw - dcOffset;
-    int32_t out = centered << 3;
+    i2s_read(
+      I2S_PORT,
+      (void*)i2sBuffer,
+      sizeof(i2sBuffer),
+      &bytesRead,
+      portMAX_DELAY
+    );
 
-    if (out > 32767)  out = 32767;
-    if (out < -32768) out = -32768;
+    int samplesRead = bytesRead / sizeof(int32_t);
+    if (samplesRead > AUDIO_CHUNK_SAMPLES) samplesRead = AUDIO_CHUNK_SAMPLES;
 
-    // Light low-pass: y = 0.9*prev + 0.1*out  (~127 Hz rolloff at 8kHz, gentle HF smoothing)
-    int32_t filtered = (prev * 9 + out) / 10;
-    prev = filtered;
+    int16_t currentMax = -32768;
+    int16_t currentMin = 32767;
 
-    int16_t sample16 = (int16_t)filtered;
-    chunk.samples[index++] = sample16;
+    for (int i = 0; i < samplesRead; i++) {
+      int32_t sample = i2sBuffer[i] >> 14;
 
-    if (sample16 > currentMax) currentMax = sample16;
-    if (sample16 < currentMin) currentMin = sample16;
+      if (abs(sample) < (NOISE_GATE << 4)) sample = 0;
 
-    if (index >= AUDIO_CHUNK_SAMPLES) {
-      micPeakToPeak = currentMax - currentMin;
+      if (sample > 32767) sample = 32767;
+      if (sample < -32768) sample = -32768;
 
-      if (xQueueSend(audioQueue, &chunk, 0) != pdTRUE) {
-        audioDroppedChunks++;
-      }
+      int16_t s16 = (int16_t)sample;
+      chunk.samples[i] = s16;
 
-      index = 0;
-      currentMax = -32768;
-      currentMin = 32767;
-
-      // Yield once per chunk (every 20ms) to keep scheduler happy
-      taskYIELD();
+      if (s16 > currentMax) currentMax = s16;
+      if (s16 < currentMin) currentMin = s16;
     }
 
-    ets_delay_us(105);
+    for (int i = samplesRead; i < AUDIO_CHUNK_SAMPLES; i++) {
+      chunk.samples[i] = 0;
+    }
+
+    micPeakToPeak = currentMax - currentMin;
+
+    if (xQueueSend(audioQueue, &chunk, 0) != pdTRUE) {
+      audioDroppedChunks++;
+    }
   }
 }
 
@@ -318,24 +327,18 @@ void serviceBattery(unsigned long now) {
   if (now - lastBatteryRead < BATTERY_INTERVAL_MS) return;
   lastBatteryRead = now;
 
-  if (!hasMAX17048) {
-    cellVoltage = 0.0f;
-    batteryPercent = 0.0f;
-    connectedBattery = false;
-    battStable = false;
-    battHist[0] = battHist[1] = battHist[2] = 0.0f;
-    return;
-  }
-
-  cellVoltage = maxlipo.cellVoltage();
-  float v2dp = roundf(cellVoltage * 100.0f) / 100.0f;
+  float v = maxlipo.cellVoltage();
+  float v2dp = roundf(v * 100.0f) / 100.0f;
 
   battHist[battIndex] = v2dp;
   battIndex = (battIndex + 1) % 3;
+
+  // keep same behavior as your working code
   battStable = (battHist[0] == battHist[1]);
 
   connectedBattery = false;
-  batteryPercent = 0;
+  batteryPercent = 0.0f;
+  cellVoltage = v;
 
   if (!isnan(cellVoltage) && battStable) {
     connectedBattery = true;
@@ -391,15 +394,13 @@ void printStatus(unsigned long now) {
   if (now - lastStatusPrint < 1000) return;
   lastStatusPrint = now;
 
-  Serial.print("Audio packets/sec: ");
-  Serial.print(audioPacketsSent);
-  Serial.print(" | dropped chunks: ");
-  Serial.print(audioDroppedChunks);
-  Serial.print(" | late samples: ");
-  Serial.print(audioLateSamples);
-  Serial.print(" | queue depth: ");
-  Serial.println(uxQueueMessagesWaiting(audioQueue));
-  audioPacketsSent = 0;
+Serial.print("Audio packets/sec: ");
+Serial.print(audioPacketsSent);
+Serial.print(" | dropped chunks: ");
+Serial.print(audioDroppedChunks);
+Serial.print(" | queue depth: ");
+Serial.println(uxQueueMessagesWaiting(audioQueue));
+audioPacketsSent = 0;
 
   Serial.print("Battery: ");
   Serial.print(cellVoltage);
@@ -421,13 +422,7 @@ void setup() {
 
   Serial.begin(115200);
 
-  analogReadResolution(12);
-  analogSetAttenuation(ADC_11db);
-  analogSetPinAttenuation(AMP_PIN, ADC_11db);
-
-  calibrateMicDC();
-
-  Wire.begin(21, 22, 100000);
+  Wire.begin(21, 22, 400000);
 
   client.setBufferSize(1024);
   client.setServer(mqttServer, mqttPort);
@@ -440,6 +435,7 @@ void setup() {
   }
 
   connectWiFi();
+  setupI2S();
 
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   time_t nowTime = 0;
@@ -465,12 +461,9 @@ Serial.print("Init MPU done, err=");
 Serial.println(mpuErr);
 
 Serial.println("Init MAX17048 start");
-hasMAX17048 = maxlipo.begin();
+bool maxOk = maxlipo.begin();
 Serial.print("Init MAX17048 done, ok=");
-Serial.println(hasMAX17048 ? "true" : "false");
-if (!hasMAX17048) {
-  Serial.println("MAX17048 missing, battery will report 0V");
-}
+Serial.println(maxOk ? "true" : "false");
 
 BaseType_t taskOk = xTaskCreatePinnedToCore(
   audioCaptureTask,
@@ -498,15 +491,15 @@ void loop() {
   client.loop();
 
   // Keep each pass short. Push only a few chunks each time.
-  publishAudioFromQueue(10);
+  publishAudioFromQueue(2);
 
   serviceIMU(now);
   serviceBattery(now);
   serviceLED(now);
 
-  publishAudioFromQueue(10);
+  publishAudioFromQueue(2);
   serviceSensorPublish(now);
-  publishAudioFromQueue(10);
+  publishAudioFromQueue(2);
 
   printStatus(now);
 
