@@ -214,43 +214,44 @@ void audioCaptureTask(void* parameter) {
   // let setup/serial finish first
   vTaskDelay(pdMS_TO_TICKS(50));
 
+  // Target: 8000 Hz = 125µs per sample.
+  // analogRead at 12-bit/11dB takes ~20µs, so delay 105µs to hit ~125µs total.
+  static int32_t prev = 0;
+
   for (;;) {
-    for (int n = 0; n < 32; n++) {
-      int raw = analogRead(AMP_PIN);
-      int32_t centered = raw - dcOffset;
-      if (abs(centered) < 12) centered = 0;   // noise gate
-      int32_t out = centered << 3;
+    int raw = analogRead(AMP_PIN);
+    int32_t centered = raw - dcOffset;
+    int32_t out = centered << 3;
 
-      if (out > 32767) out = 32767;
-      if (out < -32768) out = -32768;
+    if (out > 32767)  out = 32767;
+    if (out < -32768) out = -32768;
 
-      static int32_t prev = 0;
-int32_t filtered = (prev * 3 + out) / 4;   // low-pass filter
-prev = filtered;
+    // Light low-pass: y = 0.9*prev + 0.1*out  (~127 Hz rolloff at 8kHz, gentle HF smoothing)
+    int32_t filtered = (prev * 9 + out) / 10;
+    prev = filtered;
 
-int16_t sample16 = (int16_t)filtered;
-      chunk.samples[index++] = sample16;
+    int16_t sample16 = (int16_t)filtered;
+    chunk.samples[index++] = sample16;
 
-      if (sample16 > currentMax) currentMax = sample16;
-      if (sample16 < currentMin) currentMin = sample16;
+    if (sample16 > currentMax) currentMax = sample16;
+    if (sample16 < currentMin) currentMin = sample16;
 
-      if (index >= AUDIO_CHUNK_SAMPLES) {
-        micPeakToPeak = currentMax - currentMin;
+    if (index >= AUDIO_CHUNK_SAMPLES) {
+      micPeakToPeak = currentMax - currentMin;
 
-        if (xQueueSend(audioQueue, &chunk, 0) != pdTRUE) {
-          audioDroppedChunks++;
-        }
-
-        index = 0;
-        currentMax = -32768;
-        currentMin = 32767;
+      if (xQueueSend(audioQueue, &chunk, 0) != pdTRUE) {
+        audioDroppedChunks++;
       }
 
-      ets_delay_us(60);
+      index = 0;
+      currentMax = -32768;
+      currentMin = 32767;
+
+      // Yield once per chunk (every 20ms) to keep scheduler happy
+      taskYIELD();
     }
 
-    // lighter than vTaskDelay(2), safer than no yield
-    vTaskDelay(1);
+    ets_delay_us(105);
   }
 }
 
