@@ -60,8 +60,7 @@ def main(args: argparse.Namespace) -> None:
     def on_audio(client_or_payload, msg=None):
         nonlocal pkt_count
         payload = client_or_payload if msg is None else msg.payload
-        raw = np.frombuffer(payload, dtype=np.uint8)
-        samples = (raw.astype(np.int16) - 128) * 256
+        samples = np.frombuffer(payload, dtype=np.int16)
         chunks.append(samples.copy())
         pkt_count += 1
         print(f"  Packet {pkt_count:4d} | {len(samples):5d} samples | "
