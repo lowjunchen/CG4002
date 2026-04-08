@@ -7,6 +7,7 @@
 #include <time.h>
 #include <math.h>
 #include "driver/i2s.h"
+#include "esp_task_wdt.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -39,7 +40,7 @@ const int NOISE_GATE = 6;
 const int AUDIO_SAMPLE_RATE = 8000;
 const int AUDIO_CHUNK_MS = 20;
 const int AUDIO_CHUNK_SAMPLES = AUDIO_SAMPLE_RATE * AUDIO_CHUNK_MS / 1000; // 160
-const int AUDIO_QUEUE_LEN =8; // 160 ms of buffering
+const int AUDIO_QUEUE_LEN = 8; // 160 ms of buffering
 
 struct AudioChunk {
   int16_t samples[AUDIO_CHUNK_SAMPLES];
@@ -140,7 +141,6 @@ void connectWiFi() {
 }
 
 void connectMQTTNonBlocking() {
-  // client.setServer(mqttServer, mqttPort);
   if (client.connected()) return;
   if (WiFi.status() != WL_CONNECTED) return;
 
@@ -153,15 +153,15 @@ void connectMQTTNonBlocking() {
     Serial.println("connected");
   } else {
     int s = client.state();
-Serial.print("failed rc=");
-Serial.print(s);
-Serial.print(" | WiFi=");
-Serial.print(WiFi.status());
+    Serial.print("failed rc=");
+    Serial.print(s);
+    Serial.print(" | WiFi=");
+    Serial.print(WiFi.status());
 
-time_t nowT;
-time(&nowT);
-Serial.print(" | epoch=");
-Serial.println((long)nowT);
+    time_t nowT;
+    time(&nowT);
+    Serial.print(" | epoch=");
+    Serial.println((long)nowT);
   }
 }
 
@@ -280,11 +280,9 @@ void publishAudioFromQueue(uint8_t maxChunks) {
     );
 
     if (!ok) {
-  Serial.println("Audio MQTT publish FAILED");
-  break;
-} else {
-  //Serial.println("Audio chunk published");
-}
+      Serial.println("Audio MQTT publish FAILED");
+      break;
+    }
 
     audioPacketsSent++;
     sentThisCall++;
@@ -333,7 +331,6 @@ void serviceBattery(unsigned long now) {
   battHist[battIndex] = v2dp;
   battIndex = (battIndex + 1) % 3;
 
-  // keep same behavior as your working code
   battStable = (battHist[0] == battHist[1]);
 
   connectedBattery = false;
@@ -383,10 +380,8 @@ void serviceSensorPublish(unsigned long now) {
   );
 
   if (!client.publish(SENSOR_TOPIC, payload)) {
-  Serial.println("Sensor MQTT publish failed");
-} else {
-  //Serial.println("Sensor JSON published");
-}
+    Serial.println("Sensor MQTT publish failed");
+  }
 }
 
 void printStatus(unsigned long now) {
@@ -394,13 +389,13 @@ void printStatus(unsigned long now) {
   if (now - lastStatusPrint < 1000) return;
   lastStatusPrint = now;
 
-Serial.print("Audio packets/sec: ");
-Serial.print(audioPacketsSent);
-Serial.print(" | dropped chunks: ");
-Serial.print(audioDroppedChunks);
-Serial.print(" | queue depth: ");
-Serial.println(uxQueueMessagesWaiting(audioQueue));
-audioPacketsSent = 0;
+  Serial.print("Audio packets/sec: ");
+  Serial.print(audioPacketsSent);
+  Serial.print(" | dropped chunks: ");
+  Serial.print(audioDroppedChunks);
+  Serial.print(" | queue depth: ");
+  Serial.println(uxQueueMessagesWaiting(audioQueue));
+  audioPacketsSent = 0;
 
   Serial.print("Battery: ");
   Serial.print(cellVoltage);
@@ -416,6 +411,14 @@ audioPacketsSent = 0;
 
 // -------- Setup --------
 void setup() {
+  esp_task_wdt_config_t wdt_config = {
+    .timeout_ms = 5000,
+    .idle_core_mask = 0,
+    .trigger_panic = true
+  };
+  esp_task_wdt_init(&wdt_config);
+  esp_task_wdt_add(NULL);
+
   ledcAttachChannel(PIN_RED,   PWM_FREQ, PWM_RES, CH_RED);
   ledcAttachChannel(PIN_GREEN, PWM_FREQ, PWM_RES, CH_GREEN);
   ledcAttachChannel(PIN_BLUE,  PWM_FREQ, PWM_RES, CH_BLUE);
@@ -444,53 +447,54 @@ void setup() {
     time(&nowTime);
   }
 
-while (!client.connected()) {
-  connectMQTTNonBlocking();
-  client.loop();
-  delay(50);
-}
+  while (!client.connected()) {
+    connectMQTTNonBlocking();
+    client.loop();
+    delay(50);
+  }
 
-Serial.println("MQTT connected, continuing setup...");
+  Serial.println("MQTT connected, continuing setup...");
 
-Serial.println("Init MPU start");
-Wire.beginTransmission(MPU_ADDR);
-Wire.write(0x6B);
-Wire.write(0);
-byte mpuErr = Wire.endTransmission(true);
-Serial.print("Init MPU done, err=");
-Serial.println(mpuErr);
+  Serial.println("Init MPU start");
+  Wire.beginTransmission(MPU_ADDR);
+  Wire.write(0x6B);
+  Wire.write(0);
+  byte mpuErr = Wire.endTransmission(true);
+  Serial.print("Init MPU done, err=");
+  Serial.println(mpuErr);
 
-Serial.println("Init MAX17048 start");
-bool maxOk = maxlipo.begin();
-Serial.print("Init MAX17048 done, ok=");
-Serial.println(maxOk ? "true" : "false");
+  Serial.println("Init MAX17048 start");
+  bool maxOk = maxlipo.begin();
+  Serial.print("Init MAX17048 done, ok=");
+  Serial.println(maxOk ? "true" : "false");
 
-BaseType_t taskOk = xTaskCreatePinnedToCore(
-  audioCaptureTask,
-  "AudioCapture",
-  4096,
-  nullptr,
-  2,
-  &audioTaskHandle,
-  1
-);
-if (taskOk == pdPASS) {
-  Serial.println("Audio task started");
-} else {
-  Serial.println("Audio task FAILED to start");
-}
+  BaseType_t taskOk = xTaskCreatePinnedToCore(
+    audioCaptureTask,
+    "AudioCapture",
+    4096,
+    nullptr,
+    2,
+    &audioTaskHandle,
+    1
+  );
+  if (taskOk == pdPASS) {
+    Serial.println("Audio task started");
+  } else {
+    Serial.println("Audio task FAILED to start");
+  }
 
-Serial.println("Audio streaming ready at 8000 Hz");
+  Serial.println("Audio streaming ready at 8000 Hz");
 }
 
 // -------- Loop --------
 void loop() {
+  esp_task_wdt_reset();
+
   unsigned long now = millis();
 
   connectMQTTNonBlocking();
   client.loop();
 
-  // Keep each pass short. Push only a few chunks each time.
   publishAudioFromQueue(2);
 
   serviceIMU(now);
@@ -503,6 +507,5 @@ void loop() {
 
   printStatus(now);
 
-  // Very short yield to keep Wi-Fi/MQTT serviced without long blocking.
   delay(1);
 }

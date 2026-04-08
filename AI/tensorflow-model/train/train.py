@@ -3,7 +3,7 @@ from data.extract_data import load_custom_dataset
 
 import tensorflow as tf
 
-def train_kws_model(train_ds, num_classes=7, epochs=80, lr=1e-3):
+def train_kws_model(train_ds, num_classes=7, epochs=150, lr=1e-3):
     #Get input shape and number of classes from the dataset
     for mfcc, label in train_ds.take(1):
         input_shape = mfcc.shape[1:] #Exclude batch dimension

@@ -23,7 +23,11 @@ def classify_audio(waveform, dma):
     logits_f32 = logits.view(np.float32)
 
     pred_idx, pred_label = logits_to_label(logits_f32)
-    confidence = float(logits_f32[pred_idx])
+
+    # Convert logits to probabilities via softmax
+    exp_logits = np.exp(logits_f32 - np.max(logits_f32))
+    probs = exp_logits / np.sum(exp_logits)
+    confidence = float(probs[pred_idx])
 
     return pred_label, confidence
 
@@ -41,5 +45,5 @@ def run_inference_on_windows(windows, dma):
         if confidence > best_confidence:
             best_confidence = confidence
             best_label = label
-
+    
     return best_label, best_confidence

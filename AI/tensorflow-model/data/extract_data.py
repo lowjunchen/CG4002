@@ -16,7 +16,7 @@ NUM_MFCC = 13
 
 # Custom training data label mapping
 CUSTOM_LABELS = {'start': 0, 'end': 1, 'play': 2, 'pause': 3, 'faster': 4, 'slower': 5, 'unknown': 6}
-SAMPLES_PER_CLASS = {'start': 150, 'end': 150, 'play': 150, 'pause': 150, 'faster': 150, 'slower': 150, 'unknown': 100}
+SAMPLES_PER_CLASS = {'start': 200, 'end': 200, 'play': 200, 'pause': 200, 'faster': 200, 'slower': 200, 'unknown': 600}
 
 # Labels that can be padded from Google's speech_commands dataset.
 # Maps local label name -> speech_commands label name.
