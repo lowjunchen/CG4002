@@ -24,7 +24,7 @@ from pynq_app.src.power_manager import apply_profile
 
 SAMPLE_RATE = 8000
 WINDOW_SIZE = SAMPLE_RATE * 1
-HOP_SIZE = SAMPLE_RATE // 2
+HOP_SIZE = SAMPLE_RATE * 4 // 5
 
 DEFAULT_CA = REPO_ROOT / "Comms" / "mosquitto" / "certs" / "ca.crt"
 DEFAULT_CLIENT_CERT = REPO_ROOT / "Comms" / "mosquitto" / "certs" / "clients" / "simulator.crt"
