@@ -1,1 +1,1 @@
-Refer to our capstone's [visualiser repository](https://github.com/janelleenqi/CapstoneZumbaVisualiser.git) here.
+Refer to our capstone's [visualiser repository](https://github.com/janelleenqi/CapstoneZumbaStereoVisualiser.git) here.
