@@ -1,97 +1,91 @@
-**Ultra96 SSH Tunnel for MQTT**
-Use this when the Ultra96 cannot reach the broker directly due to network restrictions. The tunnel runs over SSH, which is typically allowed even when MQTT is blocked.
+# Ultra96 Tunnel Guide
 
-This folder provides a simple script with two modes:
-- `forward` (recommended): Ultra96 publishes to a remote broker via a local port.
-- `reverse`: expose a broker target reachable from the machine running the script to the remote host.
+Use this folder when the Ultra96 can SSH out but cannot reach the MQTT broker directly.
 
-**Files**
-- `Comms/ultra96/ssh_tunnel.sh`: starts the tunnel (uses `autossh` if available).
-- `Comms/ultra96/tunnel.env.example`: config template.
+The current working path is:
 
-**1. Create your env file on Ultra96**
+1. Run the reverse SSH tunnel from the laptop.
+2. Connect the Ultra96 MQTT client to `localhost:18883`.
+3. Authenticate with `Comms/mosquitto/certs/ca.crt`, `ultra96fpga.crt`, and `ultra96fpga.key`.
+
+## Files
+
+- `ssh_tunnel.sh`: primary tunnel launcher for macOS/Linux.
+- `ssh_tunnel.bat`: Windows equivalent.
+- `tunnel.env.example`: config template.
+- `mqtt_client.py`: reusable Python MQTT/TLS wrapper.
+
+## Recommended Setup: Reverse Tunnel
+
+Copy the template:
+
 ```bash
 cp Comms/ultra96/tunnel.env.example Comms/ultra96/tunnel.env
 ```
-Edit `Comms/ultra96/tunnel.env` and set:
-- `TUNNEL_USER`, `TUNNEL_HOST`
-- `BROKER_HOST`, `BROKER_PORT` (for forward mode)
-- `LOCAL_PORT` and `REMOTE_PORT` as needed
 
-**2. Forward mode (Ultra96 -> remote broker)**
-Use this if the broker is outside the school network.
+Set these values in `Comms/ultra96/tunnel.env`:
 
 ```bash
-MODE=forward Comms/ultra96/ssh_tunnel.sh
+MODE=reverse
+TUNNEL_USER=xilinx
+TUNNEL_HOST=<ultra96-ssh-host>
+TUNNEL_PORT=22
+
+REVERSE_TARGET_HOST=<broker-reachable-from-laptop>
+REVERSE_TARGET_PORT=8883
+REMOTE_BIND_ADDR=127.0.0.1
+REMOTE_PORT=18883
 ```
 
-Then point your Ultra96 MQTT client to:
-- host: `localhost`
-- port: `LOCAL_PORT` (default `18883`)
-
-**TLS note:** if you are using TLS with a broker certificate that includes `localhost`, this works as-is. If the broker cert does not include `localhost`, you must either:
-- issue a cert with `localhost` in SAN, or
-- disable hostname verification on the MQTT client.
-
-**3. Reverse mode (expose a broker target to Ultra96)**
-Use this if the Ultra96 can SSH to your laptop but cannot reach the broker directly. The reverse tunnel opens a port on the Ultra96-side SSH server and forwards it to a target reachable from the machine running the script.
+Start the tunnel from the laptop:
 
 ```bash
 MODE=reverse Comms/ultra96/ssh_tunnel.sh
 ```
 
-Configure the target with:
-```bash
-REVERSE_TARGET_HOST=18.140.9.0
-REVERSE_TARGET_PORT=8883
-REMOTE_PORT=18883
-```
+On the Ultra96, the broker should now be reachable at:
 
-Then point the Ultra96 MQTT client to:
 - host: `localhost`
-- port: `REMOTE_PORT` (default `18883`)
+- port: `18883`
 
-By default the remote port binds to `127.0.0.1` for safety. If you want the port accessible externally on the jump host, set:
-```
-REMOTE_BIND_ADDR=0.0.0.0
-```
-and ensure the SSH server allows it (`GatewayPorts clientspecified` in `sshd_config`).
+Smoke-test the tunnel from the Ultra96 with the simulator:
 
-**4. Keep the tunnel alive**
-Install `autossh` on Ultra96 if available:
 ```bash
-sudo apt-get install -y autossh
-```
-The script will use it automatically.
-
-**5. Install Python dependency on Ultra96**
-```bash
-python3 -m pip install -r Comms/ultra96/requirements.txt
-```
-
-**6. Python MQTT client on Ultra96**
-For a direct or tunnelled mTLS MQTT client on the Ultra96, use:
-- `Comms/ultra96/mqtt_client.py`: reusable mTLS client wrapper
-- `Comms/ultra96/run_dual_clients.py`: example with separate subscribe and publish clients
-
-Example with the reverse tunnel from this folder:
-```bash
-python3 Comms/ultra96/run_dual_clients.py \
+python3 Comms/simulator/mqtt_simulator.py \
+  --tls \
   --host localhost \
   --port 18883 \
-  --ca Comms/mosquitto/certs/ca.crt \
-  --cert Comms/mosquitto/certs/clients/simulator.crt \
-  --key Comms/mosquitto/certs/clients/simulator.key \
-  --sub-topic audio/headset/1 \
-  --pub-topic ai/ultra96/result
+  --cafile Comms/mosquitto/certs/ca.crt \
+  --certfile Comms/mosquitto/certs/clients/ultra96fpga.crt \
+  --keyfile Comms/mosquitto/certs/clients/ultra96fpga.key
 ```
 
-Example on the same Wi-Fi without the tunnel:
+If you are writing Ultra96-side code, reuse `Comms/ultra96/mqtt_client.py` instead of duplicating TLS setup.
+
+## Optional Setup: Forward Tunnel
+
+`ssh_tunnel.sh` still supports `MODE=forward`, but that is not the main documented deployment path anymore.
+
+Use it only if the Ultra96 should open a local port that forwards to a remote broker:
+
 ```bash
-python3 Comms/ultra96/run_dual_clients.py \
-  --host Yeos-MacBook-Pro.local \
-  --port 8883 \
-  --ca Comms/mosquitto/certs/ca.crt \
-  --cert Comms/mosquitto/certs/clients/simulator.crt \
-  --key Comms/mosquitto/certs/clients/simulator.key
+MODE=forward Comms/ultra96/ssh_tunnel.sh
 ```
+
+Relevant variables:
+
+- `LOCAL_PORT`
+- `BROKER_HOST`
+- `BROKER_PORT`
+
+## Notes
+
+- `autossh` is used automatically if it is installed.
+- The reverse tunnel binds to `127.0.0.1` by default for safety.
+- If TLS hostname verification fails against `localhost`, either reissue the server certificate with the correct SANs or use client-side insecure mode only for temporary testing.
+
+## Troubleshooting
+
+- No listener on Ultra96: the reverse tunnel is not running or exited.
+- `Connection reset`: `REVERSE_TARGET_HOST` or `REVERSE_TARGET_PORT` is wrong.
+- TLS handshake failure: the Ultra96 certs do not match the broker CA, or the broker hostname does not match the certificate SAN.

@@ -40,10 +40,10 @@ keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=clientAuth
 EOF
 
-openssl genrsa -out clients/simulator.key 2048
-openssl req -new -key clients/simulator.key -subj "/CN=simulator" -out clients/simulator.csr
-openssl x509 -req -in clients/simulator.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-  -out clients/simulator.crt -days 825 -sha256 -extfile client.ext
+openssl genrsa -out clients/ultra96fpga.key 2048
+openssl req -new -key clients/ultra96fpga.key -subj "/CN=ultra96fpga" -out clients/ultra96fpga.csr
+openssl x509 -req -in clients/ultra96fpga.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -out clients/ultra96fpga.crt -days 825 -sha256 -extfile client.ext
 
 openssl genrsa -out clients/nodered.key 2048
 openssl req -new -key clients/nodered.key -subj "/CN=nodered" -out clients/nodered.csr

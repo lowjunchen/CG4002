@@ -20,7 +20,7 @@ package "Hardware Wearables" {
 
 package "Laptop Host" {
   together {
-    rectangle "Mosquitto MQTT Broker\nTLS listener :8883\nOptional plaintext :1883" as broker
+    rectangle "Mosquitto MQTT Broker\nTLS listener :8883" as broker
     rectangle "Node-RED\nOptional monitoring / logging" as nodered
     rectangle "Unity MQTT Client\nSubscribes sensors/device/1\nand sensors/device/2" as unity
   }
@@ -30,10 +30,8 @@ cloud "Reverse SSH Tunnel\nLaptop -> Ultra96\nUltra96 localhost:18883\nforwards 
 
 package "Ultra96 / FPGA" {
   together {
-    rectangle "MQTT Client\nConnects to localhost:18883\nSubscribes audio/headset/<id>" as ultra_mqtt
-    rectangle "Audio Buffer + MFCC\nSoftware preprocessing" as mfcc
-    rectangle "FPGA Inference Accelerator\nDMA-based command classification" as fpga
-    rectangle "MQTT Publisher\nPublishes ai/ultra96/result" as ultra_pub
+    rectangle "MQTT Client / Test Client\nConnects to localhost:18883\nusing ultra96fpga certs" as ultra_mqtt
+    rectangle "Ultra96 / FPGA Application\nConsumes broker topics locally" as ultra_app
   }
 }
 
@@ -42,9 +40,7 @@ left_glove -[hidden]right-> right_glove
 right_glove -[hidden]right-> headset
 broker -[hidden]right-> nodered
 nodered -[hidden]right-> unity
-ultra_mqtt -[hidden]right-> mfcc
-mfcc -[hidden]right-> fpga
-fpga -[hidden]right-> ultra_pub
+ultra_mqtt -[hidden]right-> ultra_app
 
 left_glove --> broker : sensors/device/1\nMQTT/TLS :8883
 right_glove --> broker : sensors/device/2\nMQTT/TLS :8883
@@ -56,11 +52,8 @@ broker --> unity : sensors/device/1,2\nMQTT/TLS :8883
 broker --> tunnel : broker :8883
 tunnel --> ultra_mqtt : localhost:18883\nMQTT/TLS
 
-ultra_mqtt --> mfcc : headset audio
-mfcc --> fpga : MFCC features via DMA
-fpga --> ultra_pub : command result
-broker --> ultra_mqtt : subscribe audio/headset/<id>
-ultra_pub --> broker : publish ai/ultra96/result
+broker --> ultra_mqtt : subscribed topics\nvia MQTT/TLS
+ultra_mqtt --> ultra_app : local processing
 
 legend right
 == mTLS on port 8883 ==

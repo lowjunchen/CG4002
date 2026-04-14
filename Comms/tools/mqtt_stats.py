@@ -11,8 +11,8 @@ import paho.mqtt.client as mqtt
 
 CERTS_DIR = Path(__file__).resolve().parents[1] / "mosquitto" / "certs"
 DEFAULT_CA = CERTS_DIR / "ca.crt"
-DEFAULT_CLIENT_CERT = CERTS_DIR / "clients" / "simulator.crt"
-DEFAULT_CLIENT_KEY = CERTS_DIR / "clients" / "simulator.key"
+DEFAULT_CLIENT_CERT = CERTS_DIR / "clients" / "ultra96fpga.crt"
+DEFAULT_CLIENT_KEY = CERTS_DIR / "clients" / "ultra96fpga.key"
 
 
 def parse_args() -> argparse.Namespace:

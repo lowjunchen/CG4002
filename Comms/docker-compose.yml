@@ -24,26 +24,6 @@ services:
       - mosquitto
     restart: unless-stopped
 
-  # ultra96-sim:
-  #   build:
-  #     context: ./ultra96-sim
-  #   container_name: ultra96-sim
-  #   ports:
-  #     - "8000:8000"
-  #   restart: unless-stopped
-
-  # firebeetle-sim:
-  #   build:
-  #     context: ./firebeetle-sim
-  #   container_name: firebeetle-sim
-  #   environment:
-  #     MQTT_HOST: mosquitto
-  #     MQTT_PORT: "1883"
-  #     DEVICE_ID: "glove_b"
-  #   depends_on:
-  #     - mosquitto
-  #   restart: unless-stopped
-
 volumes:
   mosquitto_data:
   mosquitto_log:

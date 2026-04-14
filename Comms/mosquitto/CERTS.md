@@ -1,147 +1,108 @@
-**Overview**
-This repo uses a local Certificate Authority (CA) to sign the Mosquitto server certificate and client certificates for mutual TLS (mTLS). The TLS listener is on port `8883`, and plaintext `1883` is still enabled for local dev unless you disable it in `Comms/mosquitto/mosquitto.conf`.
+# Certificate Operations
 
-**What Mutual TLS Means**
-The broker presents `server.crt` to clients, and clients must also present a valid client certificate signed by the same CA. Without a client cert, the TLS handshake is rejected.
+This folder owns the local CA, the Mosquitto server certificate, and all MQTT client certificates used by the project.
 
-**CA Files**
-- `Comms/mosquitto/certs/ca.key`: CA private key (keep secret).
-- `Comms/mosquitto/certs/ca.crt`: CA public certificate (clients trust this).
-- `Comms/mosquitto/certs/ca.srl`: CA serial file created by OpenSSL.
+The broker TLS listener is `8883`. Mutual TLS is enforced there with `require_certificate true` in [mosquitto.conf](/Users/yeoyao/Github_NEW/capstone/Comms/mosquitto/mosquitto.conf:1).
 
-**Server Certificate Files**
-- `Comms/mosquitto/certs/server.key`: Mosquitto private key.
-- `Comms/mosquitto/certs/server.csr`: CSR used to request the server cert.
-- `Comms/mosquitto/certs/server.crt`: Server certificate signed by the local CA.
-- `Comms/mosquitto/certs/server.ext`: SAN and key usage settings for the server cert.
+## Active Client Identities
 
-**Client Certificate Files**
-- `Comms/mosquitto/certs/client.ext`: Key usage settings for client certs.
-- `Comms/mosquitto/certs/clients/simulator.key`
-- `Comms/mosquitto/certs/clients/simulator.csr`
-- `Comms/mosquitto/certs/clients/simulator.crt`
-- `Comms/mosquitto/certs/clients/nodered.key`
-- `Comms/mosquitto/certs/clients/nodered.csr`
-- `Comms/mosquitto/certs/clients/nodered.crt`
-- `Comms/mosquitto/certs/clients/left_glove.key`
-- `Comms/mosquitto/certs/clients/left_glove.csr`
-- `Comms/mosquitto/certs/clients/left_glove.crt`
-- `Comms/mosquitto/certs/clients/right_glove.key`
-- `Comms/mosquitto/certs/clients/right_glove.csr`
-- `Comms/mosquitto/certs/clients/right_glove.crt`
-- `Comms/mosquitto/certs/clients/headset.key`
-- `Comms/mosquitto/certs/clients/headset.csr`
-- `Comms/mosquitto/certs/clients/headset.crt`
+- `ultra96fpga`
+- `headset`
+- `left_glove`
+- `right_glove`
+- `nodered`
+- `laptop_pub`
+- `unity_pub`
 
-**Mosquitto Configuration**
-TLS is configured in `Comms/mosquitto/mosquitto.conf`:
-- Listener `8883` with `cafile`, `certfile`, `keyfile`
-- `require_certificate true` to enforce mTLS
+## File Roles
 
-If you change certs, restart containers:
-```bash
-docker compose up -d
-```
+### CA
 
-**Simulator Usage**
-The simulator supports TLS + client certs:
-```bash
-python3 Comms/simulator/mqtt_simulator.py --tls --host localhost --port 8883
-```
+- `ca.key`: private signing key. Keep secret.
+- `ca.crt`: public CA certificate distributed to clients and broker.
+- `ca.srl`: OpenSSL serial counter.
 
-You can override the cert paths:
-```bash
-python3 Comms/simulator/mqtt_simulator.py \\
-  --tls \\
-  --cafile Comms/mosquitto/certs/ca.crt \\
-  --certfile Comms/mosquitto/certs/clients/simulator.crt \\
-  --keyfile Comms/mosquitto/certs/clients/simulator.key \\
-  --host localhost --port 8883
-```
+### Broker
 
-If you connect by IP that is not in the server cert SANs, use `--insecure` or reissue `server.crt` with the IP in `server.ext`.
+- `server.key`: Mosquitto private key.
+- `server.csr`: broker CSR.
+- `server.crt`: broker certificate signed by the CA.
+- `server.ext`: SAN and key-usage settings for the broker cert.
 
-If you connect by a stable hostname that is already in the server cert SANs, the broker IP can change without reissuing the cert. Only the hostname presented to TLS must stay the same.
+### Clients
 
-**Node-RED Usage (later step)**
-When you update Node-RED, configure the broker to:
-- Host: `localhost` (or your broker IP)
-- Port: `8883`
-- Enable TLS
-- CA cert: `Comms/mosquitto/certs/ca.crt`
-- Client cert: `Comms/mosquitto/certs/clients/nodered.crt`
-- Client key: `Comms/mosquitto/certs/clients/nodered.key`
+For each client in `certs/clients/`:
 
-**Reissuing Only the Server Certificate**
-Use this when the broker identity changes but the CA stays the same.
+- `<name>.key`: private key
+- `<name>.csr`: certificate signing request
+- `<name>.crt`: signed client certificate
+- `<name>.pfx`: PKCS#12 bundle for consumers such as Unity
 
-- If clients connect by a stable hostname already listed in `server.ext`, a Wi-Fi IP change does not require any cert update.
-- If clients connect by a new IP or a new hostname, edit `Comms/mosquitto/certs/server.ext` and run:
+## Who Uses What
+
+- Mosquitto: `ca.crt`, `server.crt`, `server.key`
+- ESP32 hardware: CA plus device cert/key embedded into `Hardware/certs.h`
+- Ultra96: `ca.crt`, `ultra96fpga.crt`, `ultra96fpga.key`
+- Unity: `ca.crt`, `unity_pub.pfx`
+- Node-RED: `ca.crt`, `nodered.crt`, `nodered.key`
+
+## Common Tasks
+
+### Create or rotate one client identity
+
+From `Comms/mosquitto`:
 
 ```bash
-Comms/mosquitto/reissue_server_cert.sh
+./gen_client_cert.sh <client_name>
 ```
 
-- This reuses the existing `ca.crt` and leaves all client certs unchanged.
-- Because the CA and device client certs stay the same, `Hardware/certs.h` does not need to be regenerated or reflashed.
+Example:
 
-**Regenerating Certs**
-If you regenerate the CA, you must reissue all server and client certificates and redistribute the new `ca.crt`.
-
-Commands (run from repo root):
 ```bash
-# Set working dir
-cd Comms/mosquitto/certs
-
-# 1) Regenerate CA
-rm -f ca.key ca.crt ca.srl
-openssl genrsa -out ca.key 2048
-openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 \
-  -subj "/CN=capstone-mosquitto-ca" -out ca.crt
-
-# 2) Regenerate server cert
-rm -f server.key server.csr server.crt
-openssl genrsa -out server.key 2048
-openssl req -new -key server.key -subj "/CN=mosquitto" -out server.csr
-cat > server.ext <<'EOF'
-authorityKeyIdentifier=keyid,issuer
-basicConstraints=CA:FALSE
-keyUsage=digitalSignature,keyEncipherment
-extendedKeyUsage=serverAuth
-subjectAltName=DNS:localhost,IP:127.0.0.1,DNS:mosquitto,DNS:host.docker.internal
-EOF
-openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-  -out server.crt -days 825 -sha256 -extfile server.ext
-
-# 3) Regenerate client certs (simulator + nodered)
-rm -f client.ext clients/*.key clients/*.csr clients/*.crt
-cat > client.ext <<'EOF'
-authorityKeyIdentifier=keyid,issuer
-basicConstraints=CA:FALSE
-keyUsage=digitalSignature,keyEncipherment
-extendedKeyUsage=clientAuth
-EOF
-
-# simulator
-openssl genrsa -out clients/simulator.key 2048
-openssl req -new -key clients/simulator.key -subj "/CN=simulator" -out clients/simulator.csr
-openssl x509 -req -in clients/simulator.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-  -out clients/simulator.crt -days 825 -sha256 -extfile client.ext
-
-# nodered
-openssl genrsa -out clients/nodered.key 2048
-openssl req -new -key clients/nodered.key -subj "/CN=nodered" -out clients/nodered.csr
-openssl x509 -req -in clients/nodered.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
-  -out clients/nodered.crt -days 825 -sha256 -extfile client.ext
-
-# 4) Restart containers to pick up changes
-cd ../../
-docker compose up -d
+PFX_PASS=capstone PFX_LEGACY=1 ./gen_client_cert.sh unity_pub
 ```
 
-**Why Node-RED Has a Client Cert**
-Mosquitto is configured for mutual TLS (`require_certificate true`), which means every client must present a valid client certificate signed by the CA. Node-RED is a client, so it needs its own cert/key pair.
+### Reissue only the broker certificate
 
-**Where Other Components Should Connect**
-- Publish/subscribe clients should connect directly to the broker over TLS using their own client certs.
-- Use Node-RED only if want processing/aggregation/visualization of the streams.
+Use this when the broker hostname or IP SANs changed but the CA should stay the same.
+
+1. Edit `Comms/mosquitto/certs/server.ext`.
+2. Reissue the server certificate:
+
+```bash
+./reissue_server_cert.sh
+```
+
+This keeps all client certs valid. Hardware does not need reflashing.
+
+### Regenerate everything
+
+Use this only when you want a new CA and a full certificate reset:
+
+```bash
+./regen_certs.sh
+```
+
+Effects:
+
+- replaces the CA
+- reissues broker and client certs
+- rewrites `Hardware/certs.h`
+- requires ESP32 devices to be reflashed
+- restarts the broker container
+
+## Verification
+
+Subscribe over TLS with the Ultra96 identity:
+
+```bash
+docker exec mosquitto sh -c 'mosquitto_sub -h localhost -p 8883 \
+  --cafile /mosquitto/config/certs/ca.crt \
+  --cert /mosquitto/config/certs/clients/ultra96fpga.crt \
+  --key /mosquitto/config/certs/clients/ultra96fpga.key \
+  -t "sensors/#"'
+```
+
+If hostname verification fails, either connect using a name present in `server.ext` or reissue the server certificate after updating the SANs.
+
+For the certificate concepts behind these files, see [MTLS_EXPLAINER.md](/Users/yeoyao/Github_NEW/capstone/Comms/mosquitto/MTLS_EXPLAINER.md:1).

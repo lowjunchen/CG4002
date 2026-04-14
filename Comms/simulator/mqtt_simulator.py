@@ -25,8 +25,8 @@ except ImportError:  # pragma: no cover
 
 CERTS_DIR = Path(__file__).resolve().parents[1] / "mosquitto" / "certs"
 DEFAULT_CA = CERTS_DIR / "ca.crt"
-DEFAULT_CLIENT_CERT = CERTS_DIR / "clients" / "simulator.crt"
-DEFAULT_CLIENT_KEY = CERTS_DIR / "clients" / "simulator.key"
+DEFAULT_CLIENT_CERT = CERTS_DIR / "clients" / "ultra96fpga.crt"
+DEFAULT_CLIENT_KEY = CERTS_DIR / "clients" / "ultra96fpga.key"
 
 
 def clamp(value: float, lo: float, hi: float) -> float:
@@ -100,8 +100,8 @@ def main() -> int:
     parser.add_argument("--client-id", default="")
     parser.add_argument("--tls", action="store_true", help="enable TLS (mTLS by default)")
     parser.add_argument("--cafile", help="CA certificate file (defaults to local CA)")
-    parser.add_argument("--certfile", help="Client certificate file (defaults to simulator cert)")
-    parser.add_argument("--keyfile", help="Client key file (defaults to simulator key)")
+    parser.add_argument("--certfile", help="Client certificate file (defaults to ultra96fpga cert)")
+    parser.add_argument("--keyfile", help="Client key file (defaults to ultra96fpga key)")
     parser.add_argument("--insecure", action="store_true", help="skip TLS hostname verification")
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--once", action="store_true", help="publish one batch and exit")
