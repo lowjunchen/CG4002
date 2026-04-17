@@ -50,6 +50,16 @@ def extract_IO_shapes(model_path="cnn_kws_model"):
         out_np = out.numpy()
         print(f"{layer.name:25s} shape={out_np.shape} min={out_np.min():.4f} max={out_np.max():.4f}")
 
+def print_architecture(model_path="cnn_kws_model"):
+    """
+    Print the Keras model.summary() table to stdout.
+
+    :param model_path: Path to the saved KWS model (default: "cnn_kws_model")
+    """
+    model = tf.keras.models.load_model(model_path)
+    model.summary()
+
+
 def extract_mfcc_shapes():
     """
     Generate dummy audio data and compute MFCCs to verify the expected shape.
@@ -62,3 +72,4 @@ def extract_mfcc_shapes():
 if __name__ == "__main__":
     extract_IO_shapes()
     extract_mfcc_shapes()
+    print_architecture()
