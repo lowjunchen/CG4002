@@ -3,8 +3,10 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
 
-from data.extract_data import fetch_speech_data_in_mfcc
+from data.extract_data import load_custom_dataset
 from utils.convert_to_mfcc import chunk_wav_to_mfccs
 
 MODEL_PATH = 'cnn_kws_model'
@@ -45,23 +47,27 @@ def evaluate_wav(wav_path, model_path=MODEL_PATH, overlap=0.5):
 def evaluate_model(model_path = MODEL_PATH):
     model = tf.keras.models.load_model(model_path)
 
-    _, test_ds = fetch_speech_data_in_mfcc(batch_size=BATCH_SIZE, training=False)
+    test_ds = load_custom_dataset(batch_size=BATCH_SIZE, augment=False)
 
     y_true_batches = []
     y_pred_batches = []
+    y_probs_batches = []
 
     for x_batch, y_batch in test_ds:
         logits = model(x_batch, training=False)
+        probs = tf.nn.softmax(logits, axis=1)
         pred = tf.argmax(logits, axis=1, output_type=tf.int64) # Extract label of the highest logit as prediction
 
         y_true_batches.append(tf.cast(y_batch, tf.int64).numpy())
         y_pred_batches.append(pred.numpy())
+        y_probs_batches.append(probs.numpy())
 
     y_true = np.concatenate(y_true_batches)
     y_pred = np.concatenate(y_pred_batches)
+    y_probs = np.concatenate(y_probs_batches)   # (N, num_classes)
 
     accuracy = float(np.mean(y_true == y_pred))
-    
+
     # Draw a confusion matrix to examine the wrong results
     cm = tf.math.confusion_matrix(
         y_true,
@@ -70,7 +76,7 @@ def evaluate_model(model_path = MODEL_PATH):
         dtype=tf.int32,
     ).numpy()
 
-    return accuracy, cm
+    return accuracy, cm, y_true, y_probs
 
 
 def print_confusion_matrix(cm, class_names):
@@ -81,7 +87,7 @@ def print_confusion_matrix(cm, class_names):
         print(row_str)
 
 
-def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False):
+def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False, plot_roc=False):
     """
     Evaluate all .wav files in a directory organised by label subdirectories,
     predicting a single label per file (highest average confidence across segments).
@@ -89,7 +95,8 @@ def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False)
     :param wav_dir: path to directory containing label subdirectories with .wav files
     :param model_path: path to the saved Keras model
     :param overlap: overlap fraction between segments (default 0.5)
-    :param plot_cm: if True, plot a confusion matrix after evaluation
+    :param plot_cm: if True, print a confusion matrix after evaluation
+    :param plot_roc: if True, save a per-class ROC curve PNG after evaluation
     """
     import os
     model = tf.keras.models.load_model(model_path)
@@ -102,6 +109,7 @@ def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False)
 
     y_true = []
     y_pred = []
+    y_probs = []
 
     for label_dir in sorted(os.listdir(wav_dir)):
         label_path = os.path.join(wav_dir, label_dir)
@@ -129,6 +137,7 @@ def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False)
 
             y_true.append(true_label)
             y_pred.append(pred_label)
+            y_probs.append(avg_probs)
 
             match = '' if true_label == pred_label else ' <-- WRONG'
             print(f"{fname:<{col_w[0]}} {true_label:<{col_w[1]}} {pred_label:<{col_w[2]}} {confidence:>{col_w[3]-1}.2%}{match}")
@@ -146,15 +155,43 @@ def evaluate_wav_dir(wav_dir, model_path=MODEL_PATH, overlap=0.5, plot_cm=False)
         ).numpy()
         print_confusion_matrix(cm, TARGET_COMMANDS)
 
+    if plot_roc and y_true:
+        y_true_idx = np.array([TARGET_COMMANDS.index(t) for t in y_true])
+        plot_roc_curves(y_true_idx, np.array(y_probs), TARGET_COMMANDS)
+
+
+def plot_roc_curves(y_true, y_probs, class_names, output_path="roc_curves.png"):
+    """
+    Plot a one-vs-rest ROC curve for each class and save to a PNG.
+
+    :param y_true:      1-D integer array of true class indices, shape (N,)
+    :param y_probs:     2-D float array of softmax probabilities, shape (N, num_classes)
+    :param class_names: list of class name strings
+    :param output_path: filename for the saved PNG
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    for i, name in enumerate(class_names):
+        fpr, tpr, _ = roc_curve((y_true == i).astype(int), y_probs[:, i])
+        roc_auc = auc(fpr, tpr)
+        ax.plot(fpr, tpr, lw=1.5, label=f"{name}  (AUC={roc_auc:.3f})")
+
+    ax.plot([0, 1], [0, 1], color="grey", lw=1, linestyle="--", label="Random")
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate (Recall)")
+    ax.set_title("ROC Curves — one-vs-rest per class")
+    ax.legend(loc="lower right", fontsize=8)
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    plt.tight_layout()
+    fig.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"ROC curves saved to: {output_path}")
+
 
 def main():
-    #accuracy, cm = evaluate_model()
-
-    #print(f'Test accuracy: {accuracy * 100.0:.2f}%')
-    #print('Confusion matrix (rows=true, cols=pred):')
-    #print_confusion_matrix(cm, TARGET_COMMANDS)
     wav_dir = r"E:\AI-for-CG4002\AI\tensorflow-model\data\test_wav_samples"
-    evaluate_wav_dir(wav_dir, plot_cm=True)
+    evaluate_wav_dir(wav_dir, plot_cm=True, plot_roc=True)
 
 if __name__ == '__main__':
     main()
